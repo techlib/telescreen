@@ -6,6 +6,7 @@
 import gi
 
 # Specify versions of components we are going to use.
+gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('Clutter', '1.0')
 gi.require_version('ClutterGst', '3.0')
@@ -15,6 +16,7 @@ gi.require_version('GObject', '2.0')
 # Import Gtk infrastructure libraries that need initialization.
 from gi.repository import ClutterGst
 from gi.repository import GObject
+from gi.repository import Gdk
 
 # Import the GObject-Introspection-compatible Twisted reactor.
 from twisted.internet import gireactor
@@ -90,8 +92,11 @@ def do_version(*args, **kwargs):
 
 
 def main():
+    # Initialize Gdk.
+    args = Gdk.init(argv)
+
     # Initialize both Clutter and Gst.
-    r, args = ClutterGst.init(argv)
+    r, args = ClutterGst.init(args)
     if r.SUCCESS != r:
         exit(1)
 
