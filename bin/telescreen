@@ -1,0 +1,122 @@
+#!/usr/bin/python3 -tt
+# -*- coding: utf-8 -*-
+
+# Use GObject-Introspection for the Gtk infrastructure bindings.
+# We are going to use Clutter and ClutterGst that are normally not exposed.
+import gi
+
+# Specify versions of components we are going to use.
+gi.require_version('Gdk', '3.0')
+gi.require_version('Clutter', '1.0')
+gi.require_version('ClutterGst', '3.0')
+gi.require_version('Gst', '1.0')
+gi.require_version('GObject', '2.0')
+
+# Import Gtk infrastructure libraries that need initialization.
+from gi.repository import ClutterGst
+from gi.repository import GObject
+
+# Import the GObject-Introspection-compatible Twisted reactor.
+from twisted.internet import gireactor
+
+# Register the reactor with GObject for Clutter compatibility.
+gireactor.install()
+
+# Get rest of the Twisted.
+from twisted.internet import reactor
+from twisted.python import log
+
+# Import all application handles.
+from telescreen import Manager, Screen
+from telescreen.tzmq import Router
+
+# Command line arguments follow the GNU conventions.
+from getopt import gnu_getopt
+from sys import argv, stderr, exit
+
+
+def do_start(connect_to, identity):
+    # Start Twisted logging to console.
+    log.startLogging(stderr)
+
+    # Prepare a 0MQ router instance for communication with the
+    # leader that publishes our indoctrination schedule.
+    router = Router(identity, default_recipient='leader')
+    router.connect(connect_to)
+
+    # Prepare the screen that is presented to the user.
+    screen = Screen()
+
+    # Set the correct thread pool size for the manager.
+    reactor.suggestThreadPoolSize(2)
+
+    # Prepare the manager that communicates with the leader and
+    # controls the screen instance above.
+    manager = Manager(router, screen)
+
+    # Use manager to implement program switching.
+    screen.list_programs = manager.list_programs
+    screen.change_program = manager.change_program
+
+    # Schedule a call to the manager right after we finish here.
+    reactor.callLater(0, manager.start)
+
+    # Also draw the initial, blank screen as soon as possible.
+    reactor.callLater(0, screen.start)
+
+    # Run Gtk / Twisted reactor until the user terminates us.
+    reactor.run()
+
+
+def do_help(*args, **kwargs):
+    print('Usage: telescreen [--id=tv1] [--connect=tcp://127.0.0.1:5001]')
+    print('Run the telescreen with given configuration.')
+    print('')
+    print('OPTIONS:')
+    print('  --help, -h          Display this help.')
+    print('  --version, -V       Display version info.')
+    print('')
+    print('  --connect, -c url   Connect to specified 0MQ endpoint.')
+    print('  --identity, -i id   Assume this identity.')
+    print('')
+    print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
+    print('application responding to messages addressed to the "leader".')
+    print('')
+    print('Report bugs at <http://github.com/techlib/telescreen>.')
+
+
+def do_version(*args, **kwargs):
+    print('telescreen (NTK) 1')
+
+
+def main():
+    # Initialize both Clutter and Gst.
+    r, args = ClutterGst.init(argv)
+    if r.SUCCESS != r:
+        exit(1)
+
+    # Parse command line arguments.
+    opts, args = gnu_getopt(args, 'hVi:c:', ['help', 'version', 'id=', 'connect='])
+
+    action = do_start
+    connect_to = 'tcp://127.0.0.1:5001'
+    identity = 'tv1'
+
+    for k, v in opts:
+        if k in ('--help', '-h'):
+            action = do_help
+        elif k in ('--version', '-V'):
+            action = do_version
+        elif k in ('--identity', 'i'):
+            identity = v
+        elif k in ('--connect', '-c'):
+            connect_to = v
+
+    # Perform the selected action.
+    action(connect_to, identity)
+
+
+if __name__ == '__main__':
+    main()
+
+# vim:set sw=4 ts=4 et:

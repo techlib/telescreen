@@ -1,0 +1,4 @@
+Twisted
+zope-interface
+simplejson
+pygobject
