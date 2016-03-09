@@ -56,10 +56,6 @@ def do_start(connect_to, identity):
     # controls the screen instance above.
     manager = Manager(router, screen)
 
-    # Use manager to implement program switching.
-    screen.list_programs = manager.list_programs
-    screen.change_program = manager.change_program
-
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)
 

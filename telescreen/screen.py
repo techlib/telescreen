@@ -1,63 +1,37 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
+__all__ = ['Screen', 'VideoImage', 'ItemImage']
+
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
-from gi.repository.Gst import parse_launch, State
+from gi.repository.Gst import parse_launch, State, MessageType
 from gi.repository.GdkPixbuf import Pixbuf
 from gi.repository.Cogl import PixelFormat
 
 from twisted.internet import reactor
 from twisted.python import log
 
+from urllib.parse import quote
 from os.path import dirname
 
 
 class Screen(object):
     def __init__(self):
         self.stage = Stage.new()
+        self.stage.set_size(1280, 720)
         self.stage.connect('delete-event', self.on_delete)
 
-        layout = BinLayout.new(BinAlignment.FILL, BinAlignment.FILL)
-        self.stage.set_layout_manager(layout)
         self.stage.set_background_color(Color.get_static(StaticColor.BLACK))
-
         self.set_logo(dirname(__file__) + '/logo.png')
 
         self.actor = None
         self.pipeline = None
 
     def start(self):
-        def play():
-            pipeline = parse_launch('videotestsrc ! warptv ! cluttersink name=sink')
-            self.set_pipeline(pipeline)
-
-        reactor.callLater(1, play)
-
         self.stage.show()
         log.msg('Screen started.')
-
-    def set_pipeline(self, pipeline):
-        if self.pipeline is not None:
-            self.pipeline.set_state(State.NULL)
-
-        if pipeline is None:
-            self.pipeline = None
-            self.actor = None
-            return
-
-        assert pipeline.get_by_name('sink')
-
-        self.pipeline = pipeline
-        content = Content.new_with_sink(pipeline.get_by_name('sink'))
-
-        self.actor = Actor.new()
-        self.actor.set_content(content)
-        self.actor.set_size(640, 480)
-        self.stage.add_child(self.actor)
-
-        self.pipeline.set_state(State.PLAYING)
 
     def on_delete(self, target, event):
         if self.pipeline is not None:
@@ -65,20 +39,106 @@ class Screen(object):
 
         reactor.stop()
 
-    def list_programs(self):
-        raise NotImplementedError('list_programs')
-
-    def change_program(self, program):
-        raise NotImplementedError('change_program')
-
     def set_logo(self, path):
         self.stage.set_content(clutter_image_from_file(path))
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
 
 class Item(object):
-    def __init__(self):
-        pass
+    def __init__(self, planner, uri):
+        self.screen = planner.screen
+        self.planner = planner
+        self.uri = uri
+
+        self.state = 'stopped'
+        self.pipeline = self.make_pipeline(uri)
+        self.sink = self.pipeline.get_by_name('sink')
+
+        content = Content.new_with_sink(self.sink)
+
+        self.actor = Actor.new()
+        self.actor.set_opacity(0)
+        self.actor.set_content(content)
+
+        bus = self.pipeline.get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        bus.connect('message', self.on_message)
+
+        self.actor.connect('transition-stopped', self.on_actor_transition_stopped)
+
+    def make_pipeline(self, uri):
+        raise NotImplementedError('make_pipeline')
+
+    def play(self):
+        self.pipeline.set_state(State.PLAYING)
+
+    def pause(self):
+        self.pipeline.set_state(State.PAUSED)
+
+    def stop(self):
+        self.pipeline.set_state(State.NULL)
+
+    def appear(self):
+        self.actor.save_easing_state()
+        self.actor.set_easing_duration(240)
+        self.actor.set_opacity(255)
+        self.actor.restore_easing_state()
+
+    def disappear(self):
+        self.actor.save_easing_state()
+        self.actor.set_easing_duration(240)
+        self.actor.set_opacity(0)
+        self.actor.restore_easing_state()
+
+    def on_message(self, bus, msg):
+        if MessageType.EOS == msg.type:
+            self.stop()
+            return self.planner.stopped(self)
+
+        if MessageType.STATE_CHANGED == msg.type:
+            old, new, pending = msg.parse_state_changed()
+
+            if new == new.PLAYING and self.state != 'playing':
+                fit_actor_to_parent(self.actor)
+                self.state = 'playing'
+                return self.planner.playing(self)
+
+            if new in (new.READY, new.PAUSED) and self.state != 'paused':
+                fit_actor_to_parent(self.actor)
+                self.state = 'paused'
+                return self.planner.paused(self)
+
+            if new == new.NULL and self.state != 'stopped':
+                self.state = 'stopped'
+                return self.planner.stopped(self)
+
+    def on_actor_transition_stopped(self, actor, name, finished):
+        if 'opacity' == name:
+            if 0 == actor.get_opacity():
+                return self.planner.disappeared(self)
+
+            if 255 == actor.get_opacity():
+                return self.planner.appeared(self)
+
+
+class ImageItem(Item):
+    def make_pipeline(self, uri):
+        return parse_launch('''
+            uridecodebin uri=%s buffer-size=20971520 name=source
+                ! imagefreeze
+                ! videoconvert
+                ! cluttersink name=sink
+        '''.strip() % quote(uri, '/:'))
+
+
+class VideoItem(Item):
+    def make_pipeline(self, uri):
+        return parse_launch('''
+            uridecodebin uri=%s buffer-size=20971520 name=source
+                ! videoconvert
+                ! cluttersink name=sink
+        '''.strip() % quote(uri, '/:'))
 
 
 def clutter_image_from_file(path):
@@ -97,6 +157,34 @@ def clutter_image_from_file(path):
                           pixbuf.get_rowstride())
 
     return image
+
+
+def fit_actor_to_parent(actor):
+    content = actor.get_content()
+    if content is None:
+        return
+
+    applies, width, height = content.get_preferred_size()
+    if not applies:
+        return
+
+    if actor.get_parent() is None:
+        return
+
+    parent_width = actor.get_parent().get_width()
+    parent_height = actor.get_parent().get_height()
+
+    width_ratio = float(parent_width) / float(width)
+    height_ratio = float(parent_height) / float(height)
+
+    width = int(width * min(width_ratio, height_ratio))
+    height = int(height * min(width_ratio, height_ratio))
+
+    actor.set_width(width)
+    actor.set_height(height)
+
+    actor.set_x((parent_width - width) / 2)
+    actor.set_y((parent_height - height) / 2)
 
 
 # vim:set sw=4 ts=4 et:
