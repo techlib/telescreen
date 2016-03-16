@@ -1,8 +1,26 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-__all__ = ['Screen', 'VideoImage', 'ItemImage']
+__all__ = ['Screen', 'VideoImage', 'ItemImage', 'init']
 
+# Use GObject-Introspection for the Gtk infrastructure bindings.
+# We are going to use Clutter and ClutterGst that are normally not exposed.
+import gi
+
+# Specify versions of components we are going to use.
+gi.require_version('GdkPixbuf', '2.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('Clutter', '1.0')
+gi.require_version('ClutterGst', '3.0')
+gi.require_version('Gst', '1.0')
+gi.require_version('GObject', '2.0')
+
+# Import Gtk infrastructure libraries that need initialization.
+from gi.repository import ClutterGst
+from gi.repository import GObject
+from gi.repository import Gdk
+
+# Import individual gi objects we need.
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
@@ -185,6 +203,19 @@ def fit_actor_to_parent(actor):
 
     actor.set_x((parent_width - width) / 2)
     actor.set_y((parent_height - height) / 2)
+
+
+def init(argv):
+    # Initialize Gdk.
+    argv = Gdk.init(argv)
+
+    # Initialize both Clutter and Gst.
+    r, argv = ClutterGst.init(argv)
+    if r.SUCCESS != r:
+        exit(1)
+
+    # Return remaining arguments.
+    return argv
 
 
 # vim:set sw=4 ts=4 et:
