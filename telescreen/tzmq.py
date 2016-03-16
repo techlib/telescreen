@@ -125,11 +125,11 @@ class Router(object):
 
 
 if __name__ == '__main__':
-    server = Router(identity='server')\
-                .bind('tcp://127.0.0.1:4321')
+    server = Router(identity='server') \
+        .bind('tcp://127.0.0.1:4321')
 
-    client = Router(default_recipient='server')\
-                .connect('tcp://127.0.0.1:4321')
+    client = Router(default_recipient='server') \
+        .connect('tcp://127.0.0.1:4321')
 
     def client_received(msg, sender):
         print('client received', msg)
