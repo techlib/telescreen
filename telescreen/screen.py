@@ -139,6 +139,9 @@ class Item(object):
             if 255 == actor.get_opacity():
                 return self.planner.appeared(self)
 
+    def __repr__(self):
+        return '{0}(uri={1!r})'.format(type(self).__name__, self.uri)
+
 
 class ImageItem(Item):
     def make_pipeline(self, uri):

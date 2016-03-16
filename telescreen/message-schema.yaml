@@ -1,0 +1,19 @@
+---
+anyOf:
+  - type: object
+    additionalProperties: false
+    required: [request, plan]
+    properties:
+      id: {type: string}
+      request: {enum: [changePlan]}
+      plan:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required: [start, end, type, uri]
+          properties:
+            start: {type: number}
+            end: {type: number}
+            type: {enum: [image, video]}
+            uri: {type: string, pattern: '://'}

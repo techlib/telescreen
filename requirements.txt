@@ -2,3 +2,5 @@ Twisted
 zope-interface
 simplejson
 pygobject
+jsonschema
+PyYAML

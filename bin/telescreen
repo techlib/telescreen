@@ -39,6 +39,9 @@ def do_start(connect_to, identity):
     # controls the screen instance above.
     manager = Manager(router, screen)
 
+    # Route 0MQ messages to the manager.
+    router.on_message = manager.on_message
+
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)
 
