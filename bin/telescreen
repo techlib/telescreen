@@ -20,13 +20,13 @@ from getopt import gnu_getopt
 from sys import argv, stderr, exit
 
 
-def do_start(connect_to, identity):
+def do_start(connect_to):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
-    router = Router(identity, default_recipient='leader')
+    router = Router(default_recipient='leader')
     router.connect(connect_to)
 
     # Prepare the screen that is presented to the user.
@@ -35,9 +35,13 @@ def do_start(connect_to, identity):
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
 
+    # Obtain the unique machine identifier.
+    with open('/etc/machine-id') as fp:
+        machine = fp.read().strip()
+
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(router, screen)
+    manager = Manager(router, screen, machine)
 
     # Route 0MQ messages to the manager.
     router.on_message = manager.on_message
@@ -61,7 +65,6 @@ def do_help(*args, **kwargs):
     print('  --version, -V       Display version info.')
     print('')
     print('  --connect, -c url   Connect to specified 0MQ endpoint.')
-    print('  --identity, -i id   Assume this identity.')
     print('')
     print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
     print('application responding to messages addressed to the "leader".')
@@ -82,20 +85,17 @@ def main():
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
-    identity = 'tv1'
 
     for k, v in opts:
         if k in ('--help', '-h'):
             action = do_help
         elif k in ('--version', '-V'):
             action = do_version
-        elif k in ('--identity', 'i'):
-            identity = v
         elif k in ('--connect', '-c'):
             connect_to = v
 
     # Perform the selected action.
-    action(connect_to, identity)
+    action(connect_to)
 
 
 if __name__ == '__main__':

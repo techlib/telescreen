@@ -16,10 +16,11 @@ from telescreen.schema import message_schema
 
 
 class Manager(object):
-    def __init__(self, router, screen):
+    def __init__(self, router, screen, machine):
         self.router = router
         self.screen = screen
         self.planner = Planner(screen)
+        self.machine = machine
 
     def on_message(self, msg, sender):
         try:
@@ -31,6 +32,7 @@ class Manager(object):
                 'reply': 'error',
                 'error': 'Message failed to validate.',
                 'context': [e.message] + [c.message for c in e.context],
+                'machine': self.machine,
             }, sender)
 
         log.msg('Request from {0!r}: {1!r}'.format(sender, msg['request']))
@@ -39,7 +41,10 @@ class Manager(object):
             self.planner.change_plan(msg['plan'])
 
     def keep_alive(self):
-        self.router.send({'request': 'keepAlive'})
+        self.router.send({
+            'request': 'keepAlive',
+            'machine': self.machine,
+        })
 
     def start(self):
         log.msg('Manager started.')
