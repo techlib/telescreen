@@ -56,6 +56,17 @@ class Planner(object):
         self.screen = screen
         self.schedule = set()
         self.events = []
+        item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
+        self.schedule_item(item, seconds_since_midnight()+1, seconds_since_midnight()+2)
+
+        item = VideoItem(self, 'http://10.93.0.95:7070/media/Crazy-Frog.mpg')
+        self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+7)
+
+        item = ImageItem(self, 'http://10.93.0.95:7070/media/img2.jpg')
+        self.schedule_item(item, seconds_since_midnight()+7, seconds_since_midnight()+9)
+
+        item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
+        self.schedule_item(item, seconds_since_midnight()+9, seconds_since_midnight()+11)
 
     def change_plan(self, plan):
         for event in self.events:

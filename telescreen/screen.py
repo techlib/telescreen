@@ -38,7 +38,7 @@ from os.path import dirname
 class Screen(object):
     def __init__(self):
         self.stage = Stage.new()
-        self.stage.set_size(1280, 720)
+        self.stage.set_fullscreen(True)
         self.stage.connect('delete-event', self.on_delete)
 
         self.stage.set_background_color(Color.get_static(StaticColor.BLACK))
@@ -148,6 +148,7 @@ class ImageItem(Item):
         return parse_launch('''
             uridecodebin uri=%s buffer-size=20971520 name=source
                 ! imagefreeze
+                ! videoscale
                 ! videoconvert
                 ! cluttersink name=sink
         '''.strip() % quote(uri, '/:'))
@@ -155,11 +156,12 @@ class ImageItem(Item):
 
 class VideoItem(Item):
     def make_pipeline(self, uri):
-        return parse_launch('''
+        launch = '''
             uridecodebin uri=%s buffer-size=20971520 name=source
                 ! videoconvert
                 ! cluttersink name=sink
-        '''.strip() % quote(uri, '/:'))
+        '''.strip() % quote(uri, '/:')
+        return parse_launch(launch)
 
 
 def clutter_image_from_file(path):
