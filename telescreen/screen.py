@@ -9,6 +9,8 @@ import gi
 
 # Specify versions of components we are going to use.
 gi.require_version('GdkPixbuf', '2.0')
+gi.require_version('GtkClutter', '1.0')
+gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('Clutter', '1.0')
 gi.require_version('ClutterGst', '3.0')
@@ -16,9 +18,14 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GObject', '2.0')
 
 # Import Gtk infrastructure libraries that need initialization.
+from gi.repository import GtkClutter
 from gi.repository import ClutterGst
 from gi.repository import GObject
 from gi.repository import Gdk
+from gi.repository import Gst
+from gi.repository import Gtk
+from gi.repository import Clutter
+from gi.repository import WebKit2
 
 # Import individual gi objects we need.
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
@@ -35,27 +42,95 @@ from urllib.parse import quote
 from os.path import dirname
 
 
-class Screen(object):
+class Screen(Gtk.ApplicationWindow):
     def __init__(self):
-        self.stage = Stage.new()
-        self.stage.set_fullscreen(True)
-        self.stage.connect('delete-event', self.on_delete)
+        super(Screen, self).__init__(title="Telescreen")
+        self.mode = 1
+        self.count = 0
+
+        self.fixed = Gtk.Fixed.new()
+        self.player = GtkClutter.Embed.new()
+
+        self.right = WebKit2.WebView()
+        self.bottom = WebKit2.WebView()
+
+        self.stage = self.player.get_stage()
+        self.stage.set_size(1920, 1080)
 
         self.stage.set_background_color(Color.get_static(StaticColor.BLACK))
         self.set_logo(dirname(__file__) + '/logo.png')
 
-        self.actor = None
-        self.pipeline = None
+        self.fixed.add(self.player)
+        self.fixed.add(self.right)
+        self.fixed.add(self.bottom)
+
+        self.add(self.fixed)
+
+        self.connect('delete-event', self.on_delete)
+        self.connect('check-resize', self.on_resize)
 
     def start(self):
-        self.stage.show()
+        self.fullscreen()
+        self.show_all()
+
         log.msg('Screen started.')
 
+    def on_resize(self, widget):
+        width, height = widget.get_size()
+        if width <= 0 or width < height or height <= 0:
+            return
+
+        self.count += 1
+        self.mode = self.mode % 3 + 1
+
+        if self.mode == 1:
+            self.fixed.move(self.player, 0, 0)
+            self.player.set_size_request(width, height)
+            self.stage.set_size(width, height)
+            self.right.hide()
+            self.bottom.hide()
+
+        elif self.mode == 2:
+            self.right.load_uri('http://localhost:7070/custom?get=%s' % self.count)
+            size = height/3*4
+            self.player.show()
+            self.stage.set_size(size, height)
+            self.fixed.move(self.player, 0, 0)
+            self.player.set_size_request(size, height)
+
+            self.right.show()
+            self.fixed.move(self.right, size, 0)
+            self.right.set_size_request(width-size, height)
+
+            self.bottom.hide()
+
+        elif self.mode == 3:
+            self.right.load_uri('http://localhost:7070/custom?get=%s' % self.count)
+            self.bottom.load_uri('http://localhost:7070/custom?get=%s' % self.count)
+
+            line = height / 12
+            size = (height-line)*4/3
+
+            self.fixed.move(self.player, 0, 0)
+            self.player.show()
+            self.player.set_size_request(size, height-line)
+            self.stage.set_size(size, height)
+
+            self.right.show()
+            self.fixed.move(self.right, size, 0)
+            self.right.set_size_request(width-size, height-line)
+
+            self.bottom.show()
+            self.fixed.move(self.bottom, 0, height-line)
+            self.bottom.set_size_request(width, line)
+
     def on_delete(self, target, event):
-        if self.pipeline is not None:
-            self.pipeline.set_state(State.NULL)
 
         reactor.stop()
+        Gtk.main_quit()
+
+    def on_click(self, widget):
+        self.mode = self.mode % 3 + 1
 
     def set_logo(self, path):
         self.stage.set_content(clutter_image_from_file(path))
@@ -96,6 +171,7 @@ class Item(object):
 
     def stop(self):
         self.pipeline.set_state(State.NULL)
+        self.disappear()
 
     def appear(self):
         self.actor.save_easing_state()
@@ -114,16 +190,16 @@ class Item(object):
             self.stop()
             return self.planner.stopped(self)
 
+        fit_actor_to_parent(self.actor)
+
         if MessageType.STATE_CHANGED == msg.type:
             old, new, pending = msg.parse_state_changed()
 
             if new == new.PLAYING and self.state != 'playing':
-                fit_actor_to_parent(self.actor)
                 self.state = 'playing'
                 return self.planner.playing(self)
 
             if new in (new.READY, new.PAUSED) and self.state != 'paused':
-                fit_actor_to_parent(self.actor)
                 self.state = 'paused'
                 return self.planner.paused(self)
 
@@ -158,8 +234,9 @@ class VideoItem(Item):
     def make_pipeline(self, uri):
         launch = '''
             uridecodebin uri=%s buffer-size=20971520 name=source
-                ! videoconvert
-                ! cluttersink name=sink
+            ! videoscale
+            ! videoconvert
+            ! cluttersink name=sink
         '''.strip() % quote(uri, '/:')
         return parse_launch(launch)
 
@@ -188,39 +265,32 @@ def fit_actor_to_parent(actor):
         return
 
     applies, width, height = content.get_preferred_size()
+    print("prefered", width, height)
     if not applies:
         return
 
-    if actor.get_parent() is None:
+    parent = actor.get_parent()
+    if parent is None:
         return
 
-    parent_width = actor.get_parent().get_width()
-    parent_height = actor.get_parent().get_height()
+    ratio = width/height
 
-    width_ratio = float(parent_width) / float(width)
-    height_ratio = float(parent_height) / float(height)
+    parent_width = parent.get_width()
+    parent_height = parent.get_height()
 
-    width = int(width * min(width_ratio, height_ratio))
-    height = int(height * min(width_ratio, height_ratio))
+    if ratio >= 1:
+        width = parent_width
+        height = parent_width / ratio
+    else:
+        height = parent_height
+        width = parent_height * ratio
+
+    print("final", width, height)
 
     actor.set_width(width)
     actor.set_height(height)
 
-    actor.set_x((parent_width - width) / 2)
-    actor.set_y((parent_height - height) / 2)
-
-
-def init(argv):
-    # Initialize Gdk.
-    argv = Gdk.init(argv)
-
-    # Initialize both Clutter and Gst.
-    r, argv = ClutterGst.init(argv)
-    if r.SUCCESS != r:
-        exit(1)
-
-    # Return remaining arguments.
-    return argv
-
+    actor.set_x((parent_width-width)/2)
+    actor.set_y((parent_height-height)/2)
 
 # vim:set sw=4 ts=4 et:

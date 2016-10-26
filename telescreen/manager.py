@@ -56,17 +56,24 @@ class Planner(object):
         self.screen = screen
         self.schedule = set()
         self.events = []
+
+        #reactor.callLater(2, self.init)
+
+    #def init(self):
+        '''
+        pass
+        '''
         item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
         self.schedule_item(item, seconds_since_midnight()+1, seconds_since_midnight()+2)
 
         item = VideoItem(self, 'http://10.93.0.95:7070/media/Crazy-Frog.mpg')
-        self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+7)
+        self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+60)
 
         item = ImageItem(self, 'http://10.93.0.95:7070/media/img2.jpg')
-        self.schedule_item(item, seconds_since_midnight()+7, seconds_since_midnight()+9)
+        self.schedule_item(item, seconds_since_midnight()+60, seconds_since_midnight()+52)
 
         item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
-        self.schedule_item(item, seconds_since_midnight()+9, seconds_since_midnight()+11)
+        self.schedule_item(item, seconds_since_midnight()+62, seconds_since_midnight()+70)
 
     def change_plan(self, plan):
         for event in self.events:
