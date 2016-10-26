@@ -1,4 +1,6 @@
-Copyright 2016 Národní technická knihovna
+MIT License
+
+Copyright (c) 2016
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -17,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
---
-
-Font file doc/tools/OpenSans-Regular.ttf and Twitter Bootstrap files that are
-used in documentation are licensed under the terms of Apache License 2.0,
-which can be found in doc/ASL-2.0.txt.
