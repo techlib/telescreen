@@ -265,7 +265,6 @@ def fit_actor_to_parent(actor):
         return
 
     applies, width, height = content.get_preferred_size()
-    print("prefered", width, height)
     if not applies:
         return
 
@@ -284,8 +283,6 @@ def fit_actor_to_parent(actor):
     else:
         height = parent_height
         width = parent_height * ratio
-
-    print("final", width, height)
 
     actor.set_width(width)
     actor.set_height(height)
