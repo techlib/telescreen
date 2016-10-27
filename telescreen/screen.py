@@ -7,26 +7,6 @@ __all__ = ['Screen', 'VideoImage', 'ItemImage', 'init']
 # We are going to use Clutter and ClutterGst that are normally not exposed.
 import gi
 
-# Specify versions of components we are going to use.
-gi.require_version('GdkPixbuf', '2.0')
-gi.require_version('GtkClutter', '1.0')
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
-gi.require_version('Clutter', '1.0')
-gi.require_version('ClutterGst', '3.0')
-gi.require_version('Gst', '1.0')
-gi.require_version('GObject', '2.0')
-
-# Import Gtk infrastructure libraries that need initialization.
-from gi.repository import GtkClutter
-from gi.repository import ClutterGst
-from gi.repository import GObject
-from gi.repository import Gdk
-from gi.repository import Gst
-from gi.repository import Gtk
-from gi.repository import Clutter
-from gi.repository import WebKit2
-
 # Import individual gi objects we need.
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
@@ -35,6 +15,11 @@ from gi.repository.Gst import parse_launch, State, MessageType
 from gi.repository.GdkPixbuf import Pixbuf
 from gi.repository.Cogl import PixelFormat
 
+# Import Gtk infrastructure libraries that need initialization.
+from gi.repository.GtkClutter import Embed
+from gi.repository.Gtk import Fixed, ApplicationWindow, main_quit
+from gi.repository.WebKit2 import WebView
+
 from twisted.internet import reactor
 from twisted.python import log
 
@@ -42,17 +27,17 @@ from urllib.parse import quote
 from os.path import dirname
 
 
-class Screen(Gtk.ApplicationWindow):
+class Screen(ApplicationWindow):
     def __init__(self):
         super(Screen, self).__init__(title="Telescreen")
         self.mode = 1
         self.count = 0
 
-        self.fixed = Gtk.Fixed.new()
-        self.player = GtkClutter.Embed.new()
+        self.fixed = Fixed.new()
+        self.player = Embed.new()
 
-        self.right = WebKit2.WebView()
-        self.bottom = WebKit2.WebView()
+        self.right = WebView()
+        self.bottom = WebView()
 
         self.stage = self.player.get_stage()
         self.stage.set_size(1920, 1080)
@@ -127,7 +112,7 @@ class Screen(Gtk.ApplicationWindow):
     def on_delete(self, target, event):
 
         reactor.stop()
-        Gtk.main_quit()
+        main_quit()
 
     def on_click(self, widget):
         self.mode = self.mode % 3 + 1

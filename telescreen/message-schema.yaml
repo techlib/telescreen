@@ -1,11 +1,11 @@
 ---
-anyOf:
+oneOf:
   - type: object
     additionalProperties: false
-    required: [request, plan]
+    required: [id, type, plan]
     properties:
       id: {type: string}
-      request: {enum: [changePlan]}
+      type: {enum: [plan]}
       plan:
         type: array
         items:
@@ -17,3 +17,78 @@ anyOf:
             end: {type: number}
             type: {enum: [image, video]}
             uri: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [powerOff]}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [powerOn]}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type, play]
+    properties:
+      id: {type: string}
+      type: {enum: [play]}
+      play:
+        type: object
+        additionalProperties: false
+        required: [start, end, type, uri]
+        properties:
+          type: {enum: [image, video]}
+          uri: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type, stop]
+    properties:
+      id: {type: string}
+      type: {enum: [stop]}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type, resolution]
+    properties:
+      id: {type: string}
+      type: {enum: [resolution]}
+      resolution:
+        type: object
+        additionalProperties: false
+        required: [type]
+        properties:
+          type: {enum: [full, right, both]}
+          urlRight: {type: string, pattern: '://'}
+          urlBottom: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [url]}
+      urlRight: {type: string, pattern: '://'}
+      urlBottom: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [ok]}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type, code]
+    properties:
+      id: {type: string}
+      type: {enum: [error]}
+      code: {type: integer}
+      message: {type: string}
