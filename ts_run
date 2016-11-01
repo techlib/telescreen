@@ -39,7 +39,7 @@ gireactor.install(useGtk=True)
 
 # Import all application handles.
 from telescreen import Manager, Screen
-from telescreen.tzmq import Router
+from telescreen.client import make_client
 
 # Get rest of the Twisted.
 from twisted.internet import reactor
@@ -55,11 +55,9 @@ def do_start(connect_to):
 
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
-    router = Router(default_recipient='leader')
-    router.connect(connect_to)
-
     # Prepare the screen that is presented to the user.
     screen = Screen()
+
 
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
@@ -70,10 +68,9 @@ def do_start(connect_to):
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(router, screen, machine)
-
+    manager = Manager(screen, machine)
+    manager.client = make_client(manager, connect_to)
     # Route 0MQ messages to the manager.
-    router.on_message = manager.on_message
 
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)

@@ -12,43 +12,18 @@ from datetime import datetime
 from jsonschema import validate, ValidationError
 
 from telescreen.screen import VideoItem, ImageItem
-from telescreen.schema import message_schema
 
 
 class Manager(object):
-    def __init__(self, router, screen, machine):
-        self.router = router
+    def __init__(self, screen, machine):
+        self.client = None
         self.screen = screen
         self.planner = Planner(screen)
         self.machine = machine
 
-    def on_message(self, msg, sender):
-        try:
-            validate(msg, message_schema)
-        except ValidationError as e:
-            log.msg('Message from {0!r} failed to validate.'.format(sender))
-            return self.router.send({
-                'id': msg.get('id'),
-                'reply': 'error',
-                'error': 'Message failed to validate.',
-                'context': [e.message] + [c.message for c in e.context],
-                'machine': self.machine,
-            }, sender)
-
-        log.msg('Request from {0!r}: {1!r}'.format(sender, msg['request']))
-
-        if 'changePlan' == msg['request']:
-            self.planner.change_plan(msg['plan'])
-
-    def keep_alive(self):
-        self.router.send({
-            'request': 'keepAlive',
-            'machine': self.machine,
-        })
-
     def start(self):
         log.msg('Manager started.')
-        LoopingCall(self.keep_alive).start(5)
+        #self.client.init()
 
 
 class Planner(object):
@@ -57,23 +32,23 @@ class Planner(object):
         self.schedule = set()
         self.events = []
 
-        reactor.callLater(2, self.init)
+        #reactor.callLater(2, self.init)
 
-    def init(self):
-        '''
-        pass
-        '''
-        item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
-        self.schedule_item(item, seconds_since_midnight()+1, seconds_since_midnight()+2)
+    #def init(self):
+        #'''
+        #pass
+        #'''
+        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
+        #self.schedule_item(item, seconds_since_midnight()+1, seconds_since_midnight()+2)
 
-        item = VideoItem(self, 'http://10.93.0.95:7070/media/Crazy-Frog.mpg')
-        self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+60)
+        #item = VideoItem(self, 'http://10.93.0.95:7070/media/Crazy-Frog.mpg')
+        #self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+60)
 
-        item = ImageItem(self, 'http://10.93.0.95:7070/media/img2.jpg')
-        self.schedule_item(item, seconds_since_midnight()+10, seconds_since_midnight()+15)
+        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img2.jpg')
+        #self.schedule_item(item, seconds_since_midnight()+10, seconds_since_midnight()+15)
 
-        item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
-        self.schedule_item(item, seconds_since_midnight()+15, seconds_since_midnight()+20)
+        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
+        #self.schedule_item(item, seconds_since_midnight()+15, seconds_since_midnight()+20)
 
     def change_plan(self, plan):
         for event in self.events:

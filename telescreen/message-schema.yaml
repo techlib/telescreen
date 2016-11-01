@@ -2,6 +2,14 @@
 oneOf:
   - type: object
     additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [init]}
+      device: {type: string}
+
+  - type: object
+    additionalProperties: false
     required: [id, type, plan]
     properties:
       id: {type: string}
@@ -17,6 +25,13 @@ oneOf:
             end: {type: number}
             type: {enum: [image, video]}
             uri: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [request]}
 
   - type: object
     additionalProperties: false
@@ -41,14 +56,14 @@ oneOf:
       play:
         type: object
         additionalProperties: false
-        required: [start, end, type, uri]
+        required: [type, uri]
         properties:
           type: {enum: [image, video]}
           uri: {type: string, pattern: '://'}
 
   - type: object
     additionalProperties: false
-    required: [id, type, stop]
+    required: [id, type]
     properties:
       id: {type: string}
       type: {enum: [stop]}
@@ -76,6 +91,20 @@ oneOf:
       type: {enum: [url]}
       urlRight: {type: string, pattern: '://'}
       urlBottom: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [ping]}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
+      type: {enum: [pong]}
 
   - type: object
     additionalProperties: false

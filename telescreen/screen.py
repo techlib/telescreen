@@ -28,9 +28,13 @@ from os.path import dirname
 
 
 class Screen(ApplicationWindow):
+    MODE_FULLSCREEN = 1
+    MODE_RIGHT = 2
+    MODE_BOTH = 3
+
     def __init__(self):
         super(Screen, self).__init__(title="Telescreen")
-        self.mode = 1
+        self.mode = Screen.MODE_FULLSCREEN
         self.count = 0
 
         self.fixed = Fixed.new()
@@ -66,17 +70,15 @@ class Screen(ApplicationWindow):
             return
 
         self.count += 1
-        self.mode = self.mode % 3 + 1
 
-        if self.mode == 1:
+        if self.mode == Screen.MODE_FULLSCREEN:
             self.fixed.move(self.player, 0, 0)
             self.player.set_size_request(width, height)
             self.stage.set_size(width, height)
             self.right.hide()
             self.bottom.hide()
 
-        elif self.mode == 2:
-            self.right.load_uri('http://localhost:7070/custom?get=%s' % self.count)
+        elif self.mode == Screen.MODE_RIGHT:
             size = height/3*4
             self.player.show()
             self.stage.set_size(size, height)
@@ -89,9 +91,7 @@ class Screen(ApplicationWindow):
 
             self.bottom.hide()
 
-        elif self.mode == 3:
-            self.right.load_uri('http://localhost:7070/custom?get=%s' % self.count)
-            self.bottom.load_uri('http://localhost:7070/custom?get=%s' % self.count)
+        elif self.mode == Screen.MODE_BOTH:
 
             line = height / 12
             size = (height-line)*4/3
