@@ -149,6 +149,7 @@ class Item(object):
         raise NotImplementedError('make_pipeline')
 
     def play(self):
+        self.planner.next()
         self.pipeline.set_state(State.PLAYING)
 
     def pause(self):

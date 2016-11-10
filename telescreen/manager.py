@@ -23,32 +23,15 @@ class Manager(object):
 
     def start(self):
         log.msg('Manager started.')
-        #self.client.init()
+        self.client.init()
 
 
 class Planner(object):
     def __init__(self, screen):
         self.screen = screen
         self.schedule = set()
+        self.items = []
         self.events = []
-
-        #reactor.callLater(2, self.init)
-
-    #def init(self):
-        #'''
-        #pass
-        #'''
-        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
-        #self.schedule_item(item, seconds_since_midnight()+1, seconds_since_midnight()+2)
-
-        #item = VideoItem(self, 'http://10.93.0.95:7070/media/Crazy-Frog.mpg')
-        #self.schedule_item(item, seconds_since_midnight()+2, seconds_since_midnight()+60)
-
-        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img2.jpg')
-        #self.schedule_item(item, seconds_since_midnight()+10, seconds_since_midnight()+15)
-
-        #item = ImageItem(self, 'http://10.93.0.95:7070/media/img.jpg')
-        #self.schedule_item(item, seconds_since_midnight()+15, seconds_since_midnight()+20)
 
     def change_plan(self, plan):
         for event in self.events:
@@ -57,23 +40,42 @@ class Planner(object):
             except AlreadyCalled:
                 pass
 
-        self.events = []
-
         for item in self.schedule:
             item.stop()
             self.screen.stage.remove_child(item.actor)
 
         self.schedule = set()
+        self.events = []
+        self.items = plan
 
-        for data in plan:
+        self.next()
+
+    def _next(self):
+        now = seconds_since_midnight()
+        while self.items:
+            data = self.items[0]
+            self.items = self.items[1:]
+
+            if data['end'] > now:
+                return data
+
+    def next(self):
+        now = seconds_since_midnight()
+        data = self._next()
+        item = None
+
+        if data is not None:
+            if data['end'] < now:
+                return self.next()
+
             if data['type'] == 'video':
                 item = VideoItem(self, data['uri'])
             elif data['type'] == 'image':
                 item = ImageItem(self, data['uri'])
             else:
                 log.msg('Unknown item type {0!r}'.format(kind))
-                continue
 
+        if item is not None:
             self.schedule.add(item)
             self.schedule_item(item, data['start'], data['end'])
 
@@ -83,17 +85,17 @@ class Planner(object):
 
         now = seconds_since_midnight()
 
-        if end < now:
-            return log.msg('Too late for {0!r}.'.format(item.uri))
+        #if end < now:
+            #return log.msg('Too late for {0!r}.'.format(item.uri))
 
         play_in = max(start - now, 0)
-        pause_in = max(play_in - 30, 0)
+        #pause_in = max(play_in - 30, 0)
         stop_in = max(end - now, 0)
 
         log.msg('Schedule {0!r} in {1!r}s.'.format(item.uri, play_in))
 
-        if pause_in < play_in:
-            self.events.append(reactor.callLater(pause_in, item.pause))
+        #if pause_in < play_in:
+            #self.events.append(reactor.callLater(pause_in, item.pause))
 
         self.events.append(reactor.callLater(play_in, item.play))
         self.events.append(reactor.callLater(stop_in, item.stop))
