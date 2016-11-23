@@ -196,6 +196,7 @@ class Client(ZmqRouterConnection):
         '''
         pass
         '''
+        print(message)
         self.manager.planner.change_plan(message['plan'])
         #now = seconds_since_midnight()
         #fib = 0

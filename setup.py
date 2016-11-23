@@ -17,6 +17,8 @@ setup(
         'License :: OSI Approved :: MIT License',
     ],
     scripts = ['bin/telescreen'],
+    install_requires = [
+    ],
 )
 
 

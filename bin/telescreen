@@ -5,19 +5,48 @@
 from twisted.internet import gireactor
 
 # Register the reactor with GObject for Clutter compatibility.
-gireactor.install()
+import gi
+
+# Specify versions of components we are going to use.
+gi.require_version('GdkPixbuf', '2.0')
+gi.require_version('GtkClutter', '1.0')
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('Clutter', '1.0')
+gi.require_version('ClutterGst', '3.0')
+gi.require_version('Gst', '1.0')
+gi.require_version('GObject', '2.0')
+gi.require_version('WebKit2', '4.0')
+
+
+from gi.repository import GtkClutter
+from gi.repository import ClutterGst
+from gi.repository import GObject
+from gi.repository import Gdk
+from gi.repository import Gst
+from gi.repository import Gtk
+from gi.repository import Clutter
+
+from getopt import gnu_getopt
+from sys import argv, stderr, exit
+
+r, argv = GtkClutter.init(argv)
+argv = Gdk.init(argv)
+argv = Gst.init(argv)
+r, argv = ClutterGst.init(argv)
+
+gireactor.install(useGtk=True)
 
 # Import all application handles.
-from telescreen import Manager, Screen, init
-from telescreen.tzmq import Router
+from telescreen import Manager, Screen
+from telescreen.client import make_client
 
 # Get rest of the Twisted.
 from twisted.internet import reactor
 from twisted.python import log
 
 # Command line arguments follow the GNU conventions.
-from getopt import gnu_getopt
-from sys import argv, stderr, exit
+from gi.repository.Gtk import Application
 
 
 def do_start(connect_to):
@@ -26,11 +55,9 @@ def do_start(connect_to):
 
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
-    router = Router(default_recipient='leader')
-    router.connect(connect_to)
-
     # Prepare the screen that is presented to the user.
     screen = Screen()
+
 
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
@@ -41,10 +68,9 @@ def do_start(connect_to):
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(router, screen, machine)
-
+    manager = Manager(screen, machine)
+    manager.client = make_client(manager, connect_to)
     # Route 0MQ messages to the manager.
-    router.on_message = manager.on_message
 
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)
@@ -78,10 +104,10 @@ def do_version(*args, **kwargs):
 
 def main():
     # Initialize the graphical libraries.
-    args = init(argv)
 
     # Parse command line arguments.
-    opts, args = gnu_getopt(args, 'hVi:c:', ['help', 'version', 'id=', 'connect='])
+    global argv
+    opts, args = gnu_getopt(argv, 'hVi:c:', ['help', 'version', 'id=', 'connect='])
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'

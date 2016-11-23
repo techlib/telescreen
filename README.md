@@ -4,3 +4,7 @@ This software aims to greatly simplify management of digital information screens
 
 [NTK]: http://techlib.cz/
 [VISK]: http://visk.nkp.cz/
+
+FOR generate RPM please run
+
+python3 setup.py bdist_rpm
