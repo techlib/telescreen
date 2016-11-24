@@ -56,8 +56,10 @@ class Planner(object):
             data = self.items[0]
             self.items = self.items[1:]
 
-            if data['end'] > now:
+            if data['start'] >= now:
                 return data
+
+        print("KOKOT")
 
     def next(self):
         now = seconds_since_midnight()
