@@ -63,6 +63,9 @@ class Client(ZmqRouterConnection):
             Client.CALLBACK_REGISTER[action].remove(method)
 
     def checkServer(self):
+        '''
+        Periodic checking server connection
+        '''
         if self.last is None:
             self.init()
 
@@ -122,9 +125,13 @@ class Client(ZmqRouterConnection):
         '''
         Send status info. Every check_interval + every file changed
         '''
+
+        if len(self.manager.planner.playing_items) == 0:
+            self.manager.poweroff()
+
         msg = {'status': {
             'power': self.manager.power,
-            'type': 'full',
+            'type': self.manager.screen.mode,
         }}
 
         if self.manager.screen.url1:
@@ -155,29 +162,18 @@ class Client(ZmqRouterConnection):
         Change resolution
         '''
 
-        # Fit screen
-        if message['resolution']['type'] == 'fullscreen':
-            self.manager.screen.mode = self.manager.screen.MODE_FULLSCREEN
-
-        elif message['resolution']['type'] == 'right':
-            self.manager.screen.mode = self.manager.screen.MODE_RIGHT
-
-        elif message['resolution']['type'] == 'both':
-            self.manager.screen.mode = self.manager.screen.MODE_BOTH
-
-        if 'urlRight' in message['resolution']:
-            self.manager.screen.setUrl1(
-                message['resolution']['urlRight']
-            )
-
-        if 'urlBottom' in message['resolution']:
-            self.manager.screen.setUrl2(
-                message['resolution']['urlBottom']
-            )
-
-        self.manager.screen.on_resize(
-            self.manager.screen
+        self.manager.screen.setMode(
+            message['resolution'].get('type')
         )
+
+        self.manager.screen.setUrl1(
+            message['resolution'].get('urlRight')
+        )
+
+        self.manager.screen.setUrl2(
+            message['resolution'].get('urlBottom')
+        )
+
         self.ok(message)
 
     def on_url(self, message, timestamp):

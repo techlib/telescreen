@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Import individual gi objects we need.
+import logging
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
@@ -134,6 +135,11 @@ class Screen(ApplicationWindow):
         self.stage.set_content(clutter_image_from_file(path))
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
+    def setMode(self, mode):
+        # Fit screen
+        self.mode = mode
+        self.on_resize(self)
+
     def setUrl1(self, url):
         self.url1 = url
         if url:
@@ -180,7 +186,11 @@ class Item(object):
     def play(self):
         '''
         '''
-        Item.PLAYING += 1
+        for item in self.planner.playing_items:
+            if item is not self:
+                item.stop()
+
+        self.planner.playing_items.append(self)
         self.planner.next()
         self.planner.manager.client.status()
         self.pipeline.set_state(State.PLAYING)
@@ -195,8 +205,10 @@ class Item(object):
         '''
 
         '''
-        Item.PLAYING -= 1
         self.pipeline.set_state(State.NULL)
+        if self in self.planner.playing_items:
+            self.planner.playing_items.remove(self)
+
         self.disappear()
 
     def appear(self):
@@ -246,7 +258,7 @@ class Item(object):
             self.stop()
             # Posibility to show broken image
             err, debug = msg.parse_error()
-            log.msg('GST Error: %s %s' % (err, debug))
+            log.msg('GST Error: %s %s' % (err, debug), logLevel=logging.ERROR)
 
     def on_actor_transition_stopped(self, actor, name, finished):
         if 'opacity' == name:
@@ -279,17 +291,21 @@ class VideoItem(Item):
     '''
     def make_pipeline(self, uri):
         launch = '''
-            uridecodebin uri=%s buffer-size=20971520 name=source
+            uridecodebin
+                uri=%s
+                buffer-size=20971520
+                name=source
+
             source.
             ! queue
             ! audioconvert
-            ! autoaudiosink
+            ! audioresample
+            ! pulsesink
 
             source.
             ! queue
             ! videoconvert
             ! cluttersink name=sink
-
         '''.strip() % quote(uri, '/:')
         return parse_launch(launch)
 

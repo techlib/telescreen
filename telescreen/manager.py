@@ -37,7 +37,7 @@ class Manager(object):
         # cec library power on
         # cec library enable source
 
-        if self.power or force:
+        if self.power is False or force:
             log.msg('Power TV ON')
             self.power = True
 
@@ -83,6 +83,7 @@ class Planner(object):
 
         self.end = None
         self.poweroff = None
+        self.playing_items = []
 
     def change_plan(self, plan):
         '''
@@ -96,11 +97,10 @@ class Planner(object):
 
         for item in self.schedule:
             try:
-                item.stop()
-                self.screen.stage.remove_child(item.actor)
-
+                if item not in self.playing_items:
+                    self.screen.stage.remove_child(item.actor)
             except:
-                pass
+                log.err()
 
         self.schedule = set()
         self.events = []
@@ -196,7 +196,6 @@ class Planner(object):
         set stop indicator and hide item
         '''
         log.msg('Item %r stopped.' % item.uri)
-        item.disappear()
 
     def appeared(self, item):
         '''
