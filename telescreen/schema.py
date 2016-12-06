@@ -107,6 +107,22 @@ oneOf:
     required: [id, type]
     properties:
       id: {type: string}
+      type: {enum: [status]}
+      status:
+        type: object
+        additionalProperties: false
+        required: [power, type]
+        properties:
+          power: {type: boolean}
+          type: {enum: [full, right, both]}
+          urlRight: {type: string, pattern: '://'}
+          urlBottom: {type: string, pattern: '://'}
+
+  - type: object
+    additionalProperties: false
+    required: [id, type]
+    properties:
+      id: {type: string}
       type: {enum: [ping]}
 
   - type: object

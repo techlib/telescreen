@@ -1,12 +1,6 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-__all__ = ['Screen', 'VideoImage', 'ItemImage', 'init']
-
-# Use GObject-Introspection for the Gtk infrastructure bindings.
-# We are going to use Clutter and ClutterGst that are normally not exposed.
-import gi
-
 # Import individual gi objects we need.
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
@@ -26,13 +20,21 @@ from twisted.python import log
 from urllib.parse import quote
 from os.path import dirname
 
+__all__ = ['Screen', 'VideoImage', 'ItemImage']
+
 
 class Screen(ApplicationWindow):
-    MODE_FULLSCREEN = 1
-    MODE_RIGHT = 2
-    MODE_BOTH = 3
+    '''
+    Wrapper for main window. Contain all widget and map basic signals
+    '''
+    MODE_FULLSCREEN = 'full'
+    MODE_RIGHT = 'right'
+    MODE_BOTH = 'both'
 
     def __init__(self):
+        '''
+        Create basic object
+        '''
         super(Screen, self).__init__(title="Telescreen")
         self.mode = Screen.MODE_FULLSCREEN
         self.count = 0
@@ -53,18 +55,28 @@ class Screen(ApplicationWindow):
         self.fixed.add(self.right)
         self.fixed.add(self.bottom)
 
+        self.manager = None
         self.add(self.fixed)
 
         self.connect('delete-event', self.on_delete)
         self.connect('check-resize', self.on_resize)
 
+        self.url1 = None
+        self.url2 = None
+
     def start(self):
+        '''
+        Start showing window
+        '''
         self.fullscreen()
         self.show_all()
 
         log.msg('Screen started.')
 
     def on_resize(self, widget):
+        '''
+        On resize event calc proportion of clutter and webkit widget
+        '''
         width, height = widget.get_size()
         if width <= 0 or width < height or height <= 0:
             return
@@ -110,20 +122,35 @@ class Screen(ApplicationWindow):
             self.bottom.set_size_request(width, line)
 
     def on_delete(self, target, event):
+        '''
+        '''
 
         reactor.stop()
         main_quit()
 
-    def on_click(self, widget):
-        self.mode = self.mode % 3 + 1
-
     def set_logo(self, path):
+        '''
+        '''
         self.stage.set_content(clutter_image_from_file(path))
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
+    def setUrl1(self, url):
+        self.url1 = url
+        if url:
+            self.right.load_uri(url)
+
+    def setUrl2(self, url):
+        self.url2 = url
+        if url:
+            self.bottom.load_uri(url)
+
 
 class Item(object):
+    PLAYING = 0
+
     def __init__(self, planner, uri):
+        '''
+        '''
         self.screen = planner.screen
         self.planner = planner
         self.uri = uri
@@ -146,32 +173,54 @@ class Item(object):
         self.actor.connect('transition-stopped', self.on_actor_transition_stopped)
 
     def make_pipeline(self, uri):
+        '''
+        '''
         raise NotImplementedError('make_pipeline')
 
     def play(self):
+        '''
+        '''
+        Item.PLAYING += 1
         self.planner.next()
+        self.planner.manager.client.status()
         self.pipeline.set_state(State.PLAYING)
+        self.planner.manager.poweron()
 
     def pause(self):
+        '''
+        '''
         self.pipeline.set_state(State.PAUSED)
 
     def stop(self):
+        '''
+
+        '''
+        Item.PLAYING -= 1
         self.pipeline.set_state(State.NULL)
         self.disappear()
 
     def appear(self):
+        '''
+        apear item
+        '''
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(255)
         self.actor.restore_easing_state()
 
     def disappear(self):
+        '''
+        Disaper item
+        '''
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(0)
         self.actor.restore_easing_state()
 
     def on_message(self, bus, msg):
+        '''
+        on message callback method
+        '''
         if MessageType.EOS == msg.type:
             self.stop()
             return self.planner.stopped(self)
@@ -193,6 +242,12 @@ class Item(object):
                 self.state = 'stopped'
                 return self.planner.stopped(self)
 
+        elif MessageType.ERROR == msg.type:
+            self.stop()
+            # Posibility to show broken image
+            err, debug = msg.parse_error()
+            log.msg('GST Error: %s %s' % (err, debug))
+
     def on_actor_transition_stopped(self, actor, name, finished):
         if 'opacity' == name:
             if 0 == actor.get_opacity():
@@ -206,28 +261,43 @@ class Item(object):
 
 
 class ImageItem(Item):
+    '''
+    Image item pipeline commands
+    '''
     def make_pipeline(self, uri):
         return parse_launch('''
             uridecodebin uri=%s buffer-size=20971520 name=source
                 ! imagefreeze
                 ! videoscale
-                ! videoconvert
                 ! cluttersink name=sink
         '''.strip() % quote(uri, '/:'))
 
 
 class VideoItem(Item):
+    '''
+    Video item pipeline commands
+    '''
     def make_pipeline(self, uri):
         launch = '''
             uridecodebin uri=%s buffer-size=20971520 name=source
-            ! videoscale
+            source.
+            ! queue
+            ! audioconvert
+            ! autoaudiosink
+
+            source.
+            ! queue
             ! videoconvert
             ! cluttersink name=sink
+
         '''.strip() % quote(uri, '/:')
         return parse_launch(launch)
 
 
 def clutter_image_from_file(path):
+    '''
+    Generate clutter image from binary
+    '''
     pixbuf = Pixbuf.new_from_file(path)
     image = Image.new()
 
@@ -246,6 +316,9 @@ def clutter_image_from_file(path):
 
 
 def fit_actor_to_parent(actor):
+    '''
+    Calc proportion af actor
+    '''
     content = actor.get_content()
     if content is None:
         return

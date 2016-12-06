@@ -5,6 +5,8 @@
 from twisted.internet import gireactor
 
 # Register the reactor with GObject for Clutter compatibility.
+# Use GObject-Introspection for the Gtk infrastructure bindings.
+# We are going to use Clutter and ClutterGst that are normally not exposed.
 import gi
 
 # Specify versions of components we are going to use.
@@ -47,28 +49,28 @@ from twisted.python import log
 
 # Command line arguments follow the GNU conventions.
 from gi.repository.Gtk import Application
+from twisted.internet.defer import Deferred
 
 
-def do_start(connect_to):
+def do_start(connect_to, machine, check_interval):
     # Start Twisted logging to console.
     log.startLogging(stderr)
+
 
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
     # Prepare the screen that is presented to the user.
     screen = Screen()
 
-
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
 
     # Obtain the unique machine identifier.
-    with open('/etc/machine-id') as fp:
-        machine = fp.read().strip()
+
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(screen, machine)
+    manager = Manager(screen, machine, check_interval)
     manager.client = make_client(manager, connect_to)
     # Route 0MQ messages to the manager.
 
@@ -87,10 +89,12 @@ def do_help(*args, **kwargs):
     print('Run the telescreen with given configuration.')
     print('')
     print('OPTIONS:')
-    print('  --help, -h          Display this help.')
-    print('  --version, -V       Display version info.')
+    print('  --help, -h             Display this help.')
+    print('  --version, -V          Display version info.')
     print('')
-    print('  --connect, -c url   Connect to specified 0MQ endpoint.')
+    print('  --connect, -c url      Connect to specified 0MQ endpoint.')
+    print('  --id                   Set machine id')
+    print('  --check-interval, -i   Set check interval, default 300.')
     print('')
     print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
     print('application responding to messages addressed to the "leader".')
@@ -111,6 +115,10 @@ def main():
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
+    machine = None
+    with open('/etc/machine-id') as fp:
+        machine = fp.read().strip()
+    check_interval = 300
 
     for k, v in opts:
         if k in ('--help', '-h'):
@@ -119,9 +127,13 @@ def main():
             action = do_version
         elif k in ('--connect', '-c'):
             connect_to = v
+        elif k in ('--id',):
+            machine = v
+        elif k in ('--check-interval', '-i'):
+            check_interval = int(v)
 
     # Perform the selected action.
-    action(connect_to)
+    action(connect_to, machine, check_interval)
 
 
 if __name__ == '__main__':

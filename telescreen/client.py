@@ -2,6 +2,7 @@
 import datetime
 from txzmq import ZmqFactory, ZmqEndpointType, ZmqEndpoint, ZmqRouterConnection
 from twisted.internet import reactor
+from twisted.python import log
 from uuid import uuid4
 from json import loads, dumps
 from jsonschema import validate
@@ -11,6 +12,10 @@ from telescreen.manager import seconds_since_midnight
 
 
 def make_client(manager, address):
+    '''
+    Create client with parametres
+    Register callbacks
+    '''
     zmq_factory = ZmqFactory()
     zmq_endpoint = ZmqEndpoint(ZmqEndpointType.connect, address)
 
@@ -20,26 +25,30 @@ def make_client(manager, address):
     client.registerCallback('resolution', client.on_resolution)
     client.registerCallback('url', client.on_url)
     client.registerCallback('play', client.on_play)
-
     client.registerCallback('plan', client.on_plan)
     return client
 
 
 class Client(ZmqRouterConnection):
+    '''
+    Client communication enpoint
+    '''
     MESSAGE_COUNT = 0
     CLIENT_DICT = {}
     CALLBACK_REGISTER = {}
 
     def __init__(self, manager, factory, endpoint):
+        '''
+        Communicate
+        '''
         self.manager = manager
-        self._init = None
+        self.last = None
 
         super(Client, self).__init__(
             factory,
             endpoint,
             identity=manager.machine.encode('utf8')
         )
-
         self.checkServer()
 
     def registerCallback(self, action, method):
@@ -54,24 +63,29 @@ class Client(ZmqRouterConnection):
             Client.CALLBACK_REGISTER[action].remove(method)
 
     def checkServer(self):
-        self.ping()
-        if self._init is None:
+        if self.last is None:
             self.init()
 
-        reactor.callLater(300, self.checkServer)
+        else:
+            delta = datetime.datetime.now() - self.last
+            if delta.seconds > self.manager.check_interval:
+                self.last = None
+
+        if self.last is not None:
+            self.status()
+
+        reactor.callLater(self.manager.check_interval, self.checkServer)
 
     def gotMessage(self, identifier, raw, timestamp):
         '''
         pass
         '''
         Client.MESSAGE_COUNT += 1
+        self.last = datetime.datetime.now()
         try:
             message = loads(raw.decode('utf8'))
             validate(message, schema)
             id = message['id']
-
-            if self._init == id:
-                self._init = True
 
             if 'type' in message \
                     and message['type'] in Client.CALLBACK_REGISTER:
@@ -81,7 +95,7 @@ class Client(ZmqRouterConnection):
             '''
             Log exception
             '''
-            print("Exception", e)
+            log.err()
 
     def sendMsg(self, type, message, id=None):
         message['type'] = type
@@ -102,8 +116,24 @@ class Client(ZmqRouterConnection):
         pass
 
     def init(self):
-        print("INIT")
         return self.sendMsg('init', {'device': self.manager.machine})
+
+    def status(self):
+        '''
+        Send status info. Every check_interval + every file changed
+        '''
+        msg = {'status': {
+            'power': self.manager.power,
+            'type': 'full',
+        }}
+
+        if self.manager.screen.url1:
+            msg['status']['urlRight'] = self.manager.screen.url1
+
+        if self.manager.screen.url2:
+            msg['status']['urlBottom'] = self.manager.screen.url2
+
+        return self.sendMsg('status', msg)
 
     def ping(self, id=None):
         return self.sendMsg('ping', {}, id=id)
@@ -135,14 +165,13 @@ class Client(ZmqRouterConnection):
         elif message['resolution']['type'] == 'both':
             self.manager.screen.mode = self.manager.screen.MODE_BOTH
 
-        # Set url address
         if 'urlRight' in message['resolution']:
-            self.manager.screen.right.load_uri(
+            self.manager.screen.setUrl1(
                 message['resolution']['urlRight']
             )
 
         if 'urlBottom' in message['resolution']:
-            self.manager.screen.bottom.load_uri(
+            self.manager.screen.setUrl2(
                 message['resolution']['urlBottom']
             )
 
@@ -170,8 +199,10 @@ class Client(ZmqRouterConnection):
     def on_play(self, message, timestamp):
         '''
         Probably for debug
-        Add USL to planner. Play from no to midnight
+        Add URL to planner. Play from now to midnight
         '''
+
+        log.msg('Receive new plan')
         item = None
         if message['play']['type'] == 'image':
             item = ImageItem(
@@ -192,40 +223,12 @@ class Client(ZmqRouterConnection):
                 86400
             )
 
+        self.ok(message)
+
     def on_plan(self, message, timestamp):
         '''
         pass
         '''
-        print(message)
         self.manager.planner.change_plan(message['plan'])
-        #now = seconds_since_midnight()
-        #fib = 0
-        #for plan in message['plan']:
-            #if plan['start'] < now:
-                #continue
-
-            #item = None
-            #if plan['type'] == 'image':
-                #item = ImageItem(
-                    #self.manager.planner,
-                    #plan['uri']
-                #)
-
-            #if plan['type'] == 'video':
-                #item = VideoItem(
-                    #self.manager.planner,
-                    #plan['uri']
-                #)
-
-            #if item is not None:
-                #self.manager.planner.schedule_item(
-                    #item,
-                    #plan['start'],
-                    #plan['end']
-                #)
-
-            #fib += 1
-
-            #if fib == 3:
-                #break
+        self.ok(message)
 
