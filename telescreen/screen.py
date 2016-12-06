@@ -305,6 +305,7 @@ class VideoItem(Item):
             source.
             ! queue
             ! videoconvert
+            ! videoscale
             ! cluttersink name=sink
         '''.strip() % quote(uri, '/:')
         return parse_launch(launch)
