@@ -21,7 +21,7 @@ from twisted.python import log
 from urllib.parse import quote
 from os.path import dirname
 
-__all__ = ['Screen', 'VideoImage', 'ItemImage']
+__all__ = ['Screen', 'VideoImage', 'ItemImage', 'AudioVideoItem',]
 
 
 class Screen(ApplicationWindow):
@@ -288,6 +288,24 @@ class ImageItem(Item):
 class VideoItem(Item):
     '''
     Video item pipeline commands
+    '''
+    def make_pipeline(self, uri):
+        launch = '''
+            uridecodebin
+                uri=%s
+                buffer-size=20971520
+                name=source
+
+                ! videoconvert
+                ! videoscale
+                ! cluttersink name=sink
+        '''.strip() % quote(uri, '/:')
+        return parse_launch(launch)
+
+
+class AudioVideoItem(Item):
+    '''
+    AudioVideo item pipeline commands
     '''
     def make_pipeline(self, uri):
         launch = '''

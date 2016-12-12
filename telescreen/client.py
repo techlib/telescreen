@@ -7,7 +7,7 @@ from uuid import uuid4
 from json import loads, dumps
 from jsonschema import validate
 from telescreen.schema import schema
-from telescreen.screen import VideoItem, ImageItem
+from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from telescreen.manager import seconds_since_midnight
 
 
@@ -198,7 +198,7 @@ class Client(ZmqRouterConnection):
         Add URL to planner. Play from now to midnight
         '''
 
-        log.msg('Receive new plan')
+        log.msg('Receive new play request')
         item = None
         if message['play']['type'] == 'image':
             item = ImageItem(
@@ -208,6 +208,12 @@ class Client(ZmqRouterConnection):
 
         if message['play']['type'] == 'video':
             item = VideoItem(
+                self.manager.planner,
+                message['play']['uri']
+            )
+
+        if message['play']['type'] == 'audiovideo':
+            item = AudioVideoItem(
                 self.manager.planner,
                 message['play']['uri']
             )
@@ -225,6 +231,7 @@ class Client(ZmqRouterConnection):
         '''
         pass
         '''
+        log.msg('Receive new plan')
         self.manager.planner.change_plan(message['plan'])
         self.ok(message)
 

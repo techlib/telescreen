@@ -52,7 +52,7 @@ from gi.repository.Gtk import Application
 from twisted.internet.defer import Deferred
 
 
-def do_start(connect_to, machine, check_interval):
+def do_start(connect_to, machine, check_interval, cec):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
@@ -70,7 +70,7 @@ def do_start(connect_to, machine, check_interval):
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(screen, machine, check_interval)
+    manager = Manager(screen, machine, check_interval, cec)
     manager.client = make_client(manager, connect_to)
     # Route 0MQ messages to the manager.
 
@@ -116,6 +116,7 @@ def main():
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
     machine = None
+    cec = None
     with open('/etc/machine-id') as fp:
         machine = fp.read().strip()
     check_interval = 300
@@ -131,9 +132,11 @@ def main():
             machine = v
         elif k in ('--check-interval', '-i'):
             check_interval = int(v)
+        elif k in ('--cec',) and v in ('python', 'sys'):
+            cec = v
 
     # Perform the selected action.
-    action(connect_to, machine, check_interval)
+    action(connect_to, machine, check_interval, cec)
 
 
 if __name__ == '__main__':

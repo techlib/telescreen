@@ -7,7 +7,7 @@ from twisted.python import log
 
 from datetime import datetime
 from jsonschema import validate, ValidationError
-from telescreen.screen import VideoItem, ImageItem
+from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from subprocess import Popen, PIPE
 import time
 
@@ -18,13 +18,14 @@ class Manager(object):
     '''
     Global object holder
     '''
-    def __init__(self, screen, machine, check_interval):
+    def __init__(self, screen, machine, check_interval, cec):
         self.client = None
         self.screen = screen
         self.planner = Planner(screen)
         self.machine = machine
         self.check_interval = check_interval
         self.power = False
+        self.cec = cec
 
         self.screen.manager = self
         self.planner.manager = self
@@ -41,18 +42,26 @@ class Manager(object):
             log.msg('Power TV ON')
             self.power = True
 
-            # standard python-cec is written for libcec3,
-            # but repositories provide libcec4 whitch is incompatible
-            # It posible to call "Popen"
+            if self.cec == 'sys':
 
-            # p = Popen(['cec-client', '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-            # p.communicate(input='on 0')
-            # p.wait()
+                # standard python-cec is written for libcec3,
+                # but repositories provide libcec4 whitch is incompatible
+                # It posible to call "Popen"
 
-            # mayby set source
-            # p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-            # p.communicate(input='as')
-            # p.wait()
+                p = Popen(['cec-client', '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+                p.communicate(input='on 0')
+                p.wait()
+
+                # set source
+                # p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+                # p.communicate(input='as')
+                # p.wait()
+
+            elif self.cec == 'python':
+                import cec
+                cec.init()
+                tv = cec.Device(0)
+                tv.power_on()
 
     def poweroff(self, force=False):
 
@@ -63,9 +72,15 @@ class Manager(object):
 
             # Same problem as above.
 
-            # p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-            # p.communicate(input='standby 0')
-            # p.wait()
+            if self.cec == 'sys':
+                p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+                p.communicate(input='standby 0')
+                p.wait()
+
+            elif self.cec == 'python':
+                cec.init()
+                tv = cec.Device(0)
+                tv.standby()
 
 
 class Planner(object):
@@ -147,6 +162,9 @@ class Planner(object):
             # plan image
             elif data['type'] == 'image':
                 item = ImageItem(self, data['uri'])
+
+            elif data['type'] == 'audiovideo':
+                item = AudioVideoItem(self, data['uri'])
 
             # other plan
             else:
