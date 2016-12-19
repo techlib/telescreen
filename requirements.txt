@@ -3,3 +3,4 @@ simplejson
 pygobject
 jsonschema
 PyYAML
+txzmq

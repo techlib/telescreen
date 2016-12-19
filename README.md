@@ -5,17 +5,24 @@ This software aims to greatly simplify management of digital information screens
 [NTK]: http://techlib.cz/
 [VISK]: http://visk.nkp.cz/
 
-This software need repository from:
-* https://unitedrpms.github.io/
-* https://github.com/UnitedRPMs/unitedrpms.github.io/blob/master/README.md
+## Development
 
-Tested with software depenedency:
+We are assuming that your development environment is a current release of Fedora.
+
+First, add the [UnitedRPMs](https://github.com/UnitedRPMs/unitedrpms.github.io) repository to your system, then install some codecs and libraries:
+
+```bash
+dnf install -y --exclude '*-devel' --exclude '*-debug' \
+               'gstreamer1-plugins-*' gstreamer1-libav
+dnf install -y gobject-introspection-devel gtk3-devel webkitgtk4-devel \
+               gdk-pixbuf2-devel clutter-devel clutter-gst3-devel \
+               gstreamer1-devel libcec
 ```
-    dnf install gstreamer{1,}-{ffmpeg,libav,plugins-{good,ugly,bad{,-free,-nonfree}}} --setopt=strict=0
-    dnf install clutter-gst3 libcec python3-gstreamer1
+
+The development packages are required for their GObject introspection `.gir` files.
+
+As for the required Python modules, install them using the package manager:
+
+```bash
+dnf install -y python3-{twisted,simplejson,jsonschema,PyYAML,gstreamer1,gobject,txzmq}
 ```
-Python dependency is specified in requirements.txt. Bud project internaly need python GObject repository for gst, clutter, gtk3 and GDK, webkit2gtk
-
-python3 setup.py bdist_rpm
-
-GStreamer is used as playback device and can play stream video/image from URI sended by indoktrinator

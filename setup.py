@@ -7,7 +7,7 @@ setup(
     name = 'telescreen',
     version = '1',
     author = 'NTK',
-    description = ('info-screen presenter application'),
+    description = ('Digital signage player for GNOME'),
     license = 'MIT',
     keywords = 'video image slideshow',
     url = 'http://github.com/techlib/telescreen',
