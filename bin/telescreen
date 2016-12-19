@@ -62,7 +62,7 @@ from getopt import gnu_getopt
 from sys import argv, stderr, exit
 
 
-def do_start(connect_to, machine, check_interval, cec):
+def do_start(connect_to, machine, check_interval):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
@@ -81,7 +81,7 @@ def do_start(connect_to, machine, check_interval, cec):
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(screen, machine, check_interval, cec)
+    manager = Manager(screen, machine, check_interval)
     manager.client = make_client(manager, connect_to)
     # Route 0MQ messages to the manager.
 
@@ -106,7 +106,6 @@ def do_help(*args, **kwargs):
     print('  --connect, -c url      Connect to specified 0MQ endpoint.')
     print('  --id, -d identity      Set client 0MQ identity.')
     print('  --check-interval, -i   Set check interval, default 300.')
-    print('  --cec, -e impl         Select CEC implementation (sys, python).')
     print('')
     print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
     print('application responding to messages addressed to the "leader".')
@@ -120,12 +119,11 @@ def do_version(*args, **kwargs):
 
 def main():
     # Parse command line arguments.
-    opts, args = gnu_getopt(argv, 'hVi:c:d:', ['help', 'version', 'id=', 'connect='])
+    opts, args = gnu_getopt(argv, 'hVi:d:', ['help', 'version', 'id=', 'connect='])
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
     machine = None
-    cec = 'python'
     check_interval = 300
 
     for k, v in opts:
@@ -139,16 +137,13 @@ def main():
             machine = v
         elif k in ('--check-interval', '-i'):
             check_interval = int(v)
-        elif k in ('--cec', '-e'):
-            assert v in ('python', 'sys')
-            cec = v
 
     if machine is None:
         with open('/etc/machine-id') as fp:
             machine = fp.read().strip()
 
     # Perform the selected action.
-    action(connect_to, machine, check_interval, cec)
+    action(connect_to, machine, check_interval)
 
 
 if __name__ == '__main__':

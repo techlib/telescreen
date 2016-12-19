@@ -4,3 +4,4 @@ pygobject
 jsonschema
 PyYAML
 txzmq
+libcec

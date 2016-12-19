@@ -24,5 +24,5 @@ The development packages are required for their GObject introspection `.gir` fil
 As for the required Python modules, install them using the package manager:
 
 ```bash
-dnf install -y python3-{twisted,simplejson,jsonschema,PyYAML,gstreamer1,gobject,txzmq}
+dnf install -y python3-{twisted,simplejson,jsonschema,PyYAML,gstreamer1,gobject,libcec}
 ```

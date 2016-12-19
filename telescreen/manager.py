@@ -1,6 +1,9 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
+__all__ = ['Manager', 'seconds_since_midnight']
+
+
 from twisted.internet.task import LoopingCall
 from twisted.internet.error import AlreadyCalled
 from twisted.internet import reactor
@@ -12,21 +15,34 @@ from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from subprocess import Popen, PIPE
 import time
 
-__all__ = ['Manager', 'seconds_since_midnight']
+#
+# FIXME: Workaround for broken python3-libcec
+#
+#     https://bugzilla.redhat.com/show_bug.cgi?id=1394373
+#
+# There is some problem locating the _cec.so, which the following
+# code fixes by inserting the proper directory into search path.
+#
+import sys
+import os.path
+from distutils.sysconfig import get_python_lib
+sys.path.append(os.path.join(get_python_lib(1), 'cec'))
+
+# Import libcec the usual way.
+import cec
 
 
 class Manager(object):
     '''
     Global object holder
     '''
-    def __init__(self, screen, machine, check_interval, cec):
+    def __init__(self, screen, machine, check_interval):
         self.client = None
         self.screen = screen
         self.planner = Planner(screen)
         self.machine = machine
         self.check_interval = check_interval
         self.power = False
-        self.cec = cec
 
         self.screen.manager = self
         self.planner.manager = self
@@ -36,52 +52,26 @@ class Manager(object):
         self.client.init()
 
     def poweron(self, force=False):
-        # cec library power on
-        # cec library enable source
+        """Wake up all connected devices."""
 
         if self.power is False or force:
             log.msg('Power TV ON')
             self.power = True
 
-            if self.cec == 'sys':
-
-                # standard python-cec is written for libcec3,
-                # but repositories provide libcec4 whitch is incompatible
-                # It posible to call "Popen"
-
-                p = Popen(['cec-client', '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-                p.communicate(input='on 0')
-                p.wait()
-
-                # set source
-                # p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-                # p.communicate(input='as')
-                # p.wait()
-
-            elif self.cec == 'python':
-                import cec
-                cec.init()
-                tv = cec.Device(0)
-                tv.power_on()
+            for adapter in cec.AdapterVector():
+                for device in adapter.GetActiveDevices():
+                    adapter.PowerOnDevices(device)
 
     def poweroff(self, force=False):
+        """Standby all connected devices."""
 
         if self.power or force:
-            # cec library power off
             log.msg('Power TV OFF')
             self.power = False
 
-            # Same problem as above.
-
-            if self.cec == 'sys':
-                p = Popen(['cec-client',  '-s'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-                p.communicate(input='standby 0')
-                p.wait()
-
-            elif self.cec == 'python':
-                cec.init()
-                tv = cec.Device(0)
-                tv.standby()
+            for adapter in cec.AdapterVector():
+                for device in adapter.GetActiveDevices():
+                    adapter.StandbyDevices(device)
 
 
 class Planner(object):
