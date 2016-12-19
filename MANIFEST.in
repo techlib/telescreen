@@ -1,1 +1,2 @@
 include telescreen/logo.png
+include telescreen/message-schema.yaml
