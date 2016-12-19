@@ -1,4 +1,6 @@
+#!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
+
 import datetime
 from txzmq import ZmqFactory, ZmqEndpointType, ZmqEndpoint, ZmqRouterConnection
 from twisted.internet import reactor
@@ -6,7 +8,7 @@ from twisted.python import log
 from uuid import uuid4
 from json import loads, dumps
 from jsonschema import validate
-from telescreen.schema import schema
+from telescreen.schema import message_schema
 from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from telescreen.manager import seconds_since_midnight
 
@@ -87,7 +89,7 @@ class Client(ZmqRouterConnection):
         self.last = datetime.datetime.now()
         try:
             message = loads(raw.decode('utf8'))
-            validate(message, schema)
+            validate(message, message_schema)
             id = message['id']
 
             if 'type' in message \
@@ -235,3 +237,4 @@ class Client(ZmqRouterConnection):
         self.manager.planner.change_plan(message['plan'])
         self.ok(message)
 
+# vim:set sw=4 ts=4 et:

@@ -295,10 +295,9 @@ class VideoItem(Item):
                 uri=%s
                 buffer-size=20971520
                 name=source
-
-                ! videoconvert
-                ! videoscale
-                ! cluttersink name=sink
+            ! videoconvert
+            ! videoscale
+            ! cluttersink name=sink
         '''.strip() % quote(uri, '/:')
         return parse_launch(launch)
 
