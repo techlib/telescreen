@@ -1,15 +1,11 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-# Import the GObject-Introspection-compatible Twisted reactor.
-from twisted.internet import gireactor
-
-# Register the reactor with GObject for Clutter compatibility.
 # Use GObject-Introspection for the Gtk infrastructure bindings.
 # We are going to use Clutter and ClutterGst that are normally not exposed.
 import gi
 
-# Specify versions of components we are going to use.
+# Specify versions of the components we are going to use.
 gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('GtkClutter', '1.0')
 gi.require_version('Gtk', '3.0')
@@ -20,45 +16,60 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('WebKit2', '4.0')
 
-
-from gi.repository import GtkClutter
-from gi.repository import ClutterGst
-from gi.repository import GObject
-from gi.repository import Gdk
-from gi.repository import Gst
-from gi.repository import Gtk
-from gi.repository import Clutter
-
-from getopt import gnu_getopt
-from sys import argv, stderr, exit
-
-r, argv = GtkClutter.init(argv)
-argv = Gdk.init(argv)
-argv = Gst.init(argv)
-r, argv = ClutterGst.init(argv)
-
+# Import the GObject-compatible Twisted reactor.
+from twisted.internet import gireactor
 gireactor.install(useGtk=True)
+from twisted.internet import reactor
+
+# Import GNOME platform libraries.
+#
+# FIXME: We do not pass nor update the argv since I don't know how to
+#        meaningfully intergrate it with our own option handling.
+#
+from gi.repository import GObject
+from gi.repository import Gtk
+Gtk.init([])
+
+from gi.repository import Gdk
+Gdk.init([])
+
+from gi.repository import Gst
+Gst.init([])
+
+from gi.repository import Clutter
+from gi.repository import GtkClutter
+r, _ = GtkClutter.init([])
+assert r == Clutter.InitError.SUCCESS
+
+r, _ = Clutter.init([])
+assert r == Clutter.InitError.SUCCESS
+
+from gi.repository import ClutterGst
+r, _ = ClutterGst.init([])
+assert r == Clutter.InitError.SUCCESS
+
+from gi.repository.Gtk import Application
 
 # Import all application handles.
 from telescreen import Manager, Screen
 from telescreen.client import make_client
 
 # Get rest of the Twisted.
-from twisted.internet import reactor
 from twisted.python import log
 
 # Command line arguments follow the GNU conventions.
-from gi.repository.Gtk import Application
-from twisted.internet.defer import Deferred
+from getopt import gnu_getopt
+from sys import argv, stderr, exit
 
 
 def do_start(connect_to, machine, check_interval, cec):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
-
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
+    pass
+
     # Prepare the screen that is presented to the user.
     screen = Screen()
 
@@ -66,7 +77,7 @@ def do_start(connect_to, machine, check_interval, cec):
     reactor.suggestThreadPoolSize(2)
 
     # Obtain the unique machine identifier.
-
+    pass
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
@@ -85,7 +96,7 @@ def do_start(connect_to, machine, check_interval, cec):
 
 
 def do_help(*args, **kwargs):
-    print('Usage: telescreen [--id=tv1] [--connect=tcp://127.0.0.1:5001]')
+    print('Usage: telescreen [--connect=tcp://127.0.0.1:5001]')
     print('Run the telescreen with given configuration.')
     print('')
     print('OPTIONS:')
@@ -93,8 +104,9 @@ def do_help(*args, **kwargs):
     print('  --version, -V          Display version info.')
     print('')
     print('  --connect, -c url      Connect to specified 0MQ endpoint.')
-    print('  --id                   Set machine id')
+    print('  --id, -d identity      Set client 0MQ identity.')
     print('  --check-interval, -i   Set check interval, default 300.')
+    print('  --cec, -e impl         Select CEC implementation (sys, python).')
     print('')
     print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
     print('application responding to messages addressed to the "leader".')
@@ -107,18 +119,13 @@ def do_version(*args, **kwargs):
 
 
 def main():
-    # Initialize the graphical libraries.
-
     # Parse command line arguments.
-    global argv
-    opts, args = gnu_getopt(argv, 'hVi:c:', ['help', 'version', 'id=', 'connect='])
+    opts, args = gnu_getopt(argv, 'hVi:c:d:', ['help', 'version', 'id=', 'connect='])
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
     machine = None
-    cec = None
-    with open('/etc/machine-id') as fp:
-        machine = fp.read().strip()
+    cec = 'python'
     check_interval = 300
 
     for k, v in opts:
@@ -128,12 +135,17 @@ def main():
             action = do_version
         elif k in ('--connect', '-c'):
             connect_to = v
-        elif k in ('--id',):
+        elif k in ('--id', '-d'):
             machine = v
         elif k in ('--check-interval', '-i'):
             check_interval = int(v)
-        elif k in ('--cec',) and v in ('python', 'sys'):
+        elif k in ('--cec', '-e'):
+            assert v in ('python', 'sys')
             cec = v
+
+    if machine is None:
+        with open('/etc/machine-id') as fp:
+            machine = fp.read().strip()
 
     # Perform the selected action.
     action(connect_to, machine, check_interval, cec)
