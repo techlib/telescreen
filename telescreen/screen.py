@@ -35,7 +35,7 @@ class Screen(ApplicationWindow):
         '''
         Create basic object
         '''
-        super(Screen, self).__init__(title="Telescreen")
+        super().__init__(title='Telescreen')
         self.mode = Screen.MODE_FULLSCREEN
         self.count = 0
 
