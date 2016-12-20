@@ -11,25 +11,10 @@ from twisted.python import log
 
 from datetime import datetime
 from jsonschema import validate, ValidationError
-from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from subprocess import Popen, PIPE
-import time
 
-#
-# FIXME: Workaround for broken python3-libcec
-#
-#     https://bugzilla.redhat.com/show_bug.cgi?id=1394373
-#
-# There is some problem locating the _cec.so, which the following
-# code fixes by inserting the proper directory into search path.
-#
-import sys
-import os.path
-from distutils.sysconfig import get_python_lib
-sys.path.append(os.path.join(get_python_lib(1), 'cec'))
-
-# Import libcec the usual way.
-import cec
+from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
+from telescreen.cec import get_power_status, set_power_status
 
 
 class Manager(object):
@@ -57,10 +42,7 @@ class Manager(object):
         if self.power is False or force:
             log.msg('Power TV ON')
             self.power = True
-
-            for adapter in cec.AdapterVector():
-                for device in adapter.GetActiveDevices():
-                    adapter.PowerOnDevices(device)
+            set_power_status('on')
 
     def poweroff(self, force=False):
         """Standby all connected devices."""
@@ -68,10 +50,7 @@ class Manager(object):
         if self.power or force:
             log.msg('Power TV OFF')
             self.power = False
-
-            for adapter in cec.AdapterVector():
-                for device in adapter.GetActiveDevices():
-                    adapter.StandbyDevices(device)
+            set_power_status('standby')
 
 
 class Planner(object):
