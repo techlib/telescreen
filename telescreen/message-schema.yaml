@@ -4,15 +4,6 @@
 #
 ---
 oneOf:
-  # init
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [init]}
-      device: {type: string}
-
   # plan
   - type: object
     additionalProperties: false
@@ -32,53 +23,6 @@ oneOf:
             type: &TYPE {enum: [image, video, audiovideo]}
             uri: &URL {type: string, pattern: '://'}
 
-  # request
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [request]}
-
-  # powerOff
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [powerOff]}
-
-  # powerOn
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [powerOn]}
-
-  # play
-  - type: object
-    additionalProperties: false
-    required: [id, type, play]
-    properties:
-      id: {type: string}
-      type: {enum: [play]}
-      play:
-        type: object
-        additionalProperties: false
-        required: [type, uri]
-        properties:
-          type: *TYPE
-          uri: *URL
-
-  # stop
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [stop]}
-
   # resolution
   - type: object
     additionalProperties: false
@@ -94,66 +38,5 @@ oneOf:
           type: {enum: [full, right, both]}
           urlRight: *URL
           urlBottom: *URL
-
-  # url
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [url]}
-      urlRight: *URL
-      urlBottom: *URL
-
-  # status
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [status]}
-      status:
-        type: object
-        additionalProperties: false
-        required: [power, type]
-        properties:
-          power: {type: boolean}
-          type: {enum: [full, right, both]}
-          urlRight: *URL
-          urlBottom: *URL
-
-  # ping
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [ping]}
-
-  # pong
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [pong]}
-
-  # ok
-  - type: object
-    additionalProperties: false
-    required: [id, type]
-    properties:
-      id: {type: string}
-      type: {enum: [ok]}
-
-  # error
-  - type: object
-    additionalProperties: false
-    required: [id, type, code]
-    properties:
-      id: {type: string}
-      type: {enum: [error]}
-      code: {type: integer}
-      message: {type: string}
 
 # EOF

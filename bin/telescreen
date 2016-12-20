@@ -52,7 +52,7 @@ from gi.repository.Gtk import Application
 
 # Import all application handles.
 from telescreen import Manager, Screen
-from telescreen.client import make_client
+from telescreen.tzmq import Router
 
 # Get rest of the Twisted.
 from twisted.python import log
@@ -66,9 +66,15 @@ def do_start(connect_to, machine, check_interval):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
+    # Obtain the unique machine identifier.
+    if machine is None:
+        with open('/etc/machine-id') as fp:
+            machine = fp.read().strip()
+
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
-    pass
+    router = Router(machine, default_recipient='leader')
+    router.connect(connect_to)
 
     # Prepare the screen that is presented to the user.
     screen = Screen()
@@ -76,14 +82,12 @@ def do_start(connect_to, machine, check_interval):
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
 
-    # Obtain the unique machine identifier.
-    pass
-
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(screen, machine, check_interval)
-    manager.client = make_client(manager, connect_to)
+    manager = Manager(router, screen, machine, check_interval)
+
     # Route 0MQ messages to the manager.
+    router.on_message = manager.on_message
 
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)
@@ -137,10 +141,6 @@ def main():
             machine = v
         elif k in ('--check-interval', '-i'):
             check_interval = int(v)
-
-    if machine is None:
-        with open('/etc/machine-id') as fp:
-            machine = fp.read().strip()
 
     # Perform the selected action.
     action(connect_to, machine, check_interval)

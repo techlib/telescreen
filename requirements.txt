@@ -3,5 +3,6 @@ simplejson
 pygobject
 jsonschema
 PyYAML
-txzmq
 libcec
+zmq
+zope-interface

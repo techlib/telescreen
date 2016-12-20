@@ -12,7 +12,7 @@ BuildArch:      noarch
 
 Source0:        %{name}-%{version}.tar.gz
 
-Requires:       python3, python3-txzmq, python3-libcec
+Requires:       python3, python3-libcec
 Requires:       python3-twisted, python3-simplejson, python3-jsonschema
 Requires:       python3-PyYAML, python3-gstreamer1, python3-gobject
 Requires:       gobject-introspection-devel, gtk3-devel, webkitgtk4-devel

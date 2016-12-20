@@ -191,7 +191,7 @@ class Item(object):
 
         self.planner.playing_items.append(self)
         self.planner.next()
-        self.planner.manager.client.status()
+        self.planner.manager.send_status()
         self.pipeline.set_state(State.PLAYING)
         self.planner.manager.poweron()
 

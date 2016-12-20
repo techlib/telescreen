@@ -9,47 +9,128 @@ from twisted.internet.error import AlreadyCalled
 from twisted.internet import reactor
 from twisted.python import log
 
+from functools import *
 from datetime import datetime
 from jsonschema import validate, ValidationError
-from subprocess import Popen, PIPE
+from uuid import uuid4
 
+from telescreen.schema import message_schema
 from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from telescreen.cec import get_power_status, set_power_status
 
 
 class Manager(object):
-    '''
-    Global object holder
-    '''
-    def __init__(self, screen, machine, check_interval):
-        self.client = None
+    def __init__(self, router, screen, machine, check_interval):
+        self.router = router
         self.screen = screen
         self.planner = Planner(screen)
         self.machine = machine
         self.check_interval = check_interval
-        self.power = False
 
         self.screen.manager = self
         self.planner.manager = self
 
+
     def start(self):
+        """
+        Start asynchronous jobs.
+        """
+
+        log.msg('Starting periodic status update...')
+        self.status_loop = LoopingCall(self.send_status)
+        self.status_loop.start(15, now=True)
+
         log.msg('Manager started.')
-        self.client.init()
+
+
+    def send_status(self):
+        """
+        Report telescreen status to the leader.
+        """
+
+        log.msg('Sending status update...')
+
+        # FIXME: There should be a better mechanism to start a display
+        #        standby timeout. Dimming it immediately is also not ideal.
+        if len(self.planner.playing_items) == 0:
+            self.poweroff()
+
+        # FIXME: The `id` field should be something more volatile.
+        #        It is there not to identity the device, but the message.
+        message = {
+            'id': str(uuid4()),
+            'type': 'status',
+            'status': {
+                'power': get_power_status() in ('on', 'to-on'),
+                'type': self.screen.mode,
+            },
+        }
+
+        if self.screen.url1:
+            message['status']['urlRight'] = self.screen.url1
+
+        if self.screen.url2:
+            message['status']['urlBottom'] = self.screen.url2
+
+        self.router.send(message)
+
+
+    def on_message(self, message, sender):
+        """
+        Handle incoming message from the leader.
+
+        Validates the message against the `message-schema.yaml` and
+        passes its contents to a correct method (called `on_<type>`).
+        """
+
+        try:
+            validate(message, message_schema)
+        except ValidationError as e:
+            log.msg('Invalid message received: {}'.format(repr(message)))
+            return
+
+        log.msg('Received {} message...'.format(message['type']))
+        handler = 'on_' + message['type']
+
+        if hasattr(self, handler):
+            payload = message.get(message['type'], {})
+            reactor.callLater(0, getattr(self, handler), payload)
+        else:
+            log.msg('Message {} not implemented.'.format(message['type']))
+
+
+    def on_resolution(self, resolution):
+        """
+        Leader requests that we change our layout.
+        """
+
+        self.screen.setMode(resolution.get('type'))
+        self.screen.setUrl1(resolution.get('urlRight'))
+        self.screen.setUrl2(resolution.get('urlBottom'))
+
+
+    def on_plan(self, plan):
+        """Leader requests that we adjust out plan."""
+        self.planner.change_plan(plan)
+
 
     def poweron(self, force=False):
-        """Wake up all connected devices."""
+        """
+        Wake up all connected devices.
+        """
 
-        if self.power is False or force:
-            log.msg('Power TV ON')
-            self.power = True
+        if get_power_status() not in ('on', 'to-on'):
+            log.msg('Turning connected displays on...')
             set_power_status('on')
 
-    def poweroff(self, force=False):
-        """Standby all connected devices."""
 
-        if self.power or force:
-            log.msg('Power TV OFF')
-            self.power = False
+    def poweroff(self, force=False):
+        """
+        Standby all connected devices.
+        """
+
+        if get_power_status() not in ('standby', 'to-standby'):
+            log.msg('Turning connected displays off...')
             set_power_status('standby')
 
 
@@ -90,6 +171,8 @@ class Planner(object):
         self.schedule = set()
         self.events = []
         self.items = plan
+
+        log.msg('Scheduled {} items.'.format(len(plan)))
 
         self.next()
 
