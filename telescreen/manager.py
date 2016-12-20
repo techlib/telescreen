@@ -85,7 +85,7 @@ class Manager(object):
         try:
             validate(message, schema)
         except ValidationError as e:
-            log.msg('Invalid message received: {}'.format(repr(message)))
+            log.err('Invalid message received: {}'.format(repr(message)))
             return
 
         log.msg('Received {} message...'.format(message['type']))
@@ -95,7 +95,7 @@ class Manager(object):
             payload = message.get(message['type'], {})
             reactor.callLater(0, getattr(self, handler), payload)
         else:
-            log.msg('Message {} not implemented.'.format(message['type']))
+            log.err('Message {} not implemented.'.format(message['type']))
 
     def on_resolution(self, resolution):
         """
