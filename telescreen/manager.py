@@ -58,7 +58,7 @@ class Manager(object):
         # FIXME: The `id` field should be something more volatile.
         #        It is there not to identity the device, but the message.
         message = {
-            'id': str(uuid4()),
+            'id': uuid4().hex,
             'type': 'status',
             'status': {
                 'power': get_power_status() in ('on', 'to-on'),

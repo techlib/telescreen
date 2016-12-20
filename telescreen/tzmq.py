@@ -44,7 +44,7 @@ class Router(object):
         if identity is not None:
             self.socket.setsockopt_string(zmq.IDENTITY, identity)
         else:
-            self.socket.setsockopt_string(zmq.IDENTITY, str(uuid4()))
+            self.socket.setsockopt_string(zmq.IDENTITY, uuid4().hex)
 
         # Remember the default recipient.
         self.default_recipient = None
