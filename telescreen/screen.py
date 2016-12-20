@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 # Import individual gi objects we need.
-import logging
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
     Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
@@ -258,7 +257,7 @@ class Item(object):
             self.stop()
             # Posibility to show broken image
             err, debug = msg.parse_error()
-            log.msg('GST Error: %s %s' % (err, debug), logLevel=logging.ERROR)
+            log.err('GST Error: %s %s' % (err, debug))
 
     def on_actor_transition_stopped(self, actor, name, finished):
         if 'opacity' == name:
