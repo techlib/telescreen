@@ -9,7 +9,10 @@ oneOf:
     additionalProperties: false
     required: [id, type, plan]
     properties:
-      id: {type: string}
+      id:
+        type: string
+        pattern: '^[0-9a-f]{32}$'
+
       type: {enum: [plan]}
       plan:
         type: array

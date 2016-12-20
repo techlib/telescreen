@@ -21,6 +21,7 @@ __all__ = ['Manager', 'seconds_since_midnight']
 
 class Manager(object):
     def __init__(self, router, screen, machine, check_interval):
+        self.session = uuid4().hex
         self.router = router
         self.screen = screen
         self.planner = Planner(screen)
@@ -59,6 +60,7 @@ class Manager(object):
             'id': uuid4().hex,
             'type': 'status',
             'status': {
+                'session': self.session,
                 'power': get_power_status() in ('on', 'to-on'),
                 'type': self.screen.mode,
             },
