@@ -1,6 +1,6 @@
 # JSON Schema <http://json-schema.org/>
 #
-# Describes for the messages exchanged between Telescreen and Indoktrinator.
+# Describes messages received from Indoktrinator.
 #
 ---
 oneOf:

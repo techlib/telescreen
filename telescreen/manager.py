@@ -11,7 +11,7 @@ from datetime import datetime
 from jsonschema import validate, ValidationError
 from uuid import uuid4
 
-from telescreen.schema import message_schema
+from telescreen.schema import schema
 from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from telescreen.cec import get_power_status, set_power_status
 
@@ -81,7 +81,7 @@ class Manager(object):
         """
 
         try:
-            validate(message, message_schema)
+            validate(message, schema)
         except ValidationError as e:
             log.msg('Invalid message received: {}'.format(repr(message)))
             return
