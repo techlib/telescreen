@@ -3,7 +3,7 @@
 
 # Import individual gi objects we need.
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
-    Image, ContentGravity, Color, StaticColor
+                                  Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
 from gi.repository.Gst import parse_launch, State, MessageType
 from gi.repository.GdkPixbuf import Pixbuf
@@ -20,24 +20,18 @@ from twisted.python import log
 from urllib.parse import quote
 from os.path import dirname
 
-__all__ = ['Screen', 'VideoImage', 'ItemImage', 'AudioVideoItem',]
+
+__all__ = ['Screen', 'VideoItem', 'ImageItem', 'AudioVideoItem']
 
 
 class Screen(ApplicationWindow):
-    '''
-    Wrapper for main window. Contain all widget and map basic signals
-    '''
-    MODE_FULLSCREEN = 'full'
-    MODE_RIGHT = 'right'
-    MODE_BOTH = 'both'
+    """
+    Window of the content player.
+    """
 
     def __init__(self):
-        '''
-        Create basic object
-        '''
         super().__init__(title='Telescreen')
-        self.mode = Screen.MODE_FULLSCREEN
-        self.count = 0
+        self.mode = 'full'
 
         self.fixed = Fixed.new()
         self.player = Embed.new()
@@ -61,37 +55,45 @@ class Screen(ApplicationWindow):
         self.connect('delete-event', self.on_delete)
         self.connect('check-resize', self.on_resize)
 
-        self.url1 = None
-        self.url2 = None
+        self.sidebar_uri = None
+        self.panel_uri = None
 
     def start(self):
-        '''
-        Start showing window
-        '''
+        """
+        Show the application window and start any periodic processes.
+        """
+
+        log.msg('Showing the player window...')
         self.fullscreen()
         self.show_all()
+        self.on_resize(self)
 
         log.msg('Screen started.')
 
     def on_resize(self, widget):
-        '''
-        On resize event calc proportion of clutter and webkit widget
-        '''
+        """
+        Window has been resized.
+
+        Calculate position of elements with respect to new window size
+        and configured layout mode.
+        """
+
         width, height = widget.get_size()
         if width <= 0 or width < height or height <= 0:
             return
 
-        self.count += 1
-
-        if self.mode == Screen.MODE_FULLSCREEN:
+        if self.mode == 'full':
+            self.player.show()
             self.fixed.move(self.player, 0, 0)
             self.player.set_size_request(width, height)
             self.stage.set_size(width, height)
+
             self.right.hide()
             self.bottom.hide()
 
-        elif self.mode == Screen.MODE_RIGHT:
-            size = height/3*4
+        elif self.mode == 'right':
+            size = height / 3 * 4
+
             self.player.show()
             self.stage.set_size(size, height)
             self.fixed.move(self.player, 0, 0)
@@ -103,59 +105,68 @@ class Screen(ApplicationWindow):
 
             self.bottom.hide()
 
-        elif self.mode == Screen.MODE_BOTH:
+        elif self.mode == 'both':
+            panel = height / 12
+            size = (height - panel) * 4 / 3
 
-            line = height / 12
-            size = (height-line)*4/3
-
-            self.fixed.move(self.player, 0, 0)
             self.player.show()
-            self.player.set_size_request(size, height-line)
+            self.fixed.move(self.player, 0, 0)
+            self.player.set_size_request(size, height - panel)
             self.stage.set_size(size, height)
 
             self.right.show()
             self.fixed.move(self.right, size, 0)
-            self.right.set_size_request(width-size, height-line)
+            self.right.set_size_request(width - size, height - panel)
 
             self.bottom.show()
-            self.fixed.move(self.bottom, 0, height-line)
-            self.bottom.set_size_request(width, line)
+            self.fixed.move(self.bottom, 0, height - panel)
+            self.bottom.set_size_request(width, panel)
 
     def on_delete(self, target, event):
-        '''
-        '''
+        """
+        Window has been closed.
 
+        Stop the Twisted reactor and terminate the Gtk main loop.
+        This should stop the application.
+        """
+
+        log.msg('Window closed, stopping reactor...')
         reactor.stop()
         main_quit()
 
+        log.msg('Bye.')
+
     def set_logo(self, path):
-        '''
-        '''
+        """
+        Set the background logo on the stage.
+        """
+
         self.stage.set_content(clutter_image_from_file(path))
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
-    def setMode(self, mode):
-        # Fit screen
+    def set_mode(self, mode):
         self.mode = mode
         self.on_resize(self)
 
-    def setUrl1(self, url):
-        self.url1 = url
-        if url:
-            self.right.load_uri(url)
+    def set_sidebar_uri(self, uri):
+        self.sidebar_uri = uri
 
-    def setUrl2(self, url):
-        self.url2 = url
-        if url:
-            self.bottom.load_uri(url)
+        if uri is not None:
+            self.right.load_uri(uri)
+
+    def set_panel_uri(self, uri):
+        self.panel_uri = uri
+
+        if uri is not None:
+            self.bottom.load_uri(uri)
 
 
 class Item(object):
-    PLAYING = 0
+    """
+    Playlist item with its associated Actor and GStreamer pipeline.
+    """
 
     def __init__(self, planner, uri):
-        '''
-        '''
         self.screen = planner.screen
         self.planner = planner
         self.uri = uri
@@ -175,16 +186,18 @@ class Item(object):
         bus.enable_sync_message_emission()
         bus.connect('message', self.on_message)
 
-        self.actor.connect('transition-stopped', self.on_actor_transition_stopped)
+        self.actor.connect('transition-stopped',
+                           self.on_actor_transition_stopped)
 
     def make_pipeline(self, uri):
-        '''
-        '''
+        """Create GStreamer pipeline for playback of this item."""
         raise NotImplementedError('make_pipeline')
 
     def play(self):
-        '''
-        '''
+        """
+        Stop all playing items and start playing this one.
+        """
+
         for item in self.planner.playing_items:
             if item is not self:
                 item.stop()
@@ -196,14 +209,14 @@ class Item(object):
         self.planner.manager.poweron()
 
     def pause(self):
-        '''
-        '''
+        """Pause the pipeline without touching the actor."""
         self.pipeline.set_state(State.PAUSED)
 
     def stop(self):
-        '''
+        """
+        Stop pipeline and make the actor disappear.
+        """
 
-        '''
         self.pipeline.set_state(State.NULL)
         if self in self.planner.playing_items:
             self.planner.playing_items.remove(self)
@@ -211,27 +224,30 @@ class Item(object):
         self.disappear()
 
     def appear(self):
-        '''
-        apear item
-        '''
+        """
+        Make actor appear smoothly.
+        """
+
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(255)
         self.actor.restore_easing_state()
 
     def disappear(self):
-        '''
-        Disaper item
-        '''
+        """
+        Make actor disappear smoothly.
+        """
+
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(0)
         self.actor.restore_easing_state()
 
     def on_message(self, bus, msg):
-        '''
-        on message callback method
-        '''
+        """
+        Handle message from GStreamer message bus.
+        """
+
         if MessageType.EOS == msg.type:
             self.stop()
             return self.planner.stopped(self)
@@ -260,6 +276,10 @@ class Item(object):
             log.err('GST Error: %s %s' % (err, debug))
 
     def on_actor_transition_stopped(self, actor, name, finished):
+        """
+        Actor stopped its fade in/out transition.
+        """
+
         if 'opacity' == name:
             if 0 == actor.get_opacity():
                 return self.planner.disappeared(self)
@@ -272,24 +292,22 @@ class Item(object):
 
 
 class ImageItem(Item):
-    '''
-    Image item pipeline commands
-    '''
+    """Still image playlist item."""
+
     def make_pipeline(self, uri):
-        return parse_launch('''
+        return parse_launch("""
             uridecodebin uri=%s buffer-size=20971520 name=source
                 ! imagefreeze
                 ! videoscale
                 ! cluttersink name=sink
-        '''.strip() % quote(uri, '/:'))
+        """.strip() % quote(uri, '/:'))
 
 
 class VideoItem(Item):
-    '''
-    Video item pipeline commands
-    '''
+    """Video playlist item."""
+
     def make_pipeline(self, uri):
-        launch = '''
+        return parse_launch("""
             uridecodebin
                 uri=%s
                 buffer-size=20971520
@@ -297,16 +315,17 @@ class VideoItem(Item):
             ! videoconvert
             ! videoscale
             ! cluttersink name=sink
-        '''.strip() % quote(uri, '/:')
-        return parse_launch(launch)
+        """.strip() % quote(uri, '/:'))
 
+
+# FIXME: We should not need a separate AudioVideoItem, VideoItem
+#        should be enough for us!
 
 class AudioVideoItem(Item):
-    '''
-    AudioVideo item pipeline commands
-    '''
+    """Video with audio playlist item."""
+
     def make_pipeline(self, uri):
-        launch = '''
+        return parse_launch("""
             uridecodebin
                 uri=%s
                 buffer-size=20971520
@@ -323,14 +342,14 @@ class AudioVideoItem(Item):
             ! videoconvert
             ! videoscale
             ! cluttersink name=sink
-        '''.strip() % quote(uri, '/:')
-        return parse_launch(launch)
+        """.strip() % quote(uri, '/:'))
 
 
 def clutter_image_from_file(path):
-    '''
-    Generate clutter image from binary
-    '''
+    """
+    Create clutter Image from a file on disk using GdkPixbuf.
+    """
+
     pixbuf = Pixbuf.new_from_file(path)
     image = Image.new()
 
@@ -349,9 +368,10 @@ def clutter_image_from_file(path):
 
 
 def fit_actor_to_parent(actor):
-    '''
-    Calc proportion af actor
-    '''
+    """
+    Adjust Actor position and size to best fit its parent.
+    """
+
     content = actor.get_content()
     if content is None:
         return
@@ -364,7 +384,7 @@ def fit_actor_to_parent(actor):
     if parent is None:
         return
 
-    ratio = width/height
+    ratio = width / height
 
     parent_width = parent.get_width()
     parent_height = parent.get_height()
@@ -373,13 +393,14 @@ def fit_actor_to_parent(actor):
         width = parent_width
         height = parent_width / ratio
     else:
-        height = parent_height
         width = parent_height * ratio
+        height = parent_height
 
     actor.set_width(width)
     actor.set_height(height)
 
-    actor.set_x((parent_width-width)/2)
-    actor.set_y((parent_height-height)/2)
+    actor.set_x((parent_width - width) / 2)
+    actor.set_y((parent_height - height) / 2)
+
 
 # vim:set sw=4 ts=4 et:

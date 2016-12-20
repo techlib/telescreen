@@ -1,8 +1,6 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-__all__ = ['get_power_status', 'set_power_status']
-
 #
 # FIXME: Workaround for broken python3-libcec
 #
@@ -18,6 +16,9 @@ sys.path.append(os.path.join(get_python_lib(1), 'cec'))
 
 # Import libcec the usual way.
 import cec
+
+
+__all__ = ['get_power_status', 'set_power_status']
 
 
 def get_power_status():

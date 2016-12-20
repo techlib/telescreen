@@ -1,9 +1,6 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-__all__ = ['Manager', 'seconds_since_midnight']
-
-
 from twisted.internet.task import LoopingCall
 from twisted.internet.error import AlreadyCalled
 from twisted.internet import reactor
@@ -19,6 +16,9 @@ from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
 from telescreen.cec import get_power_status, set_power_status
 
 
+__all__ = ['Manager', 'seconds_since_midnight']
+
+
 class Manager(object):
     def __init__(self, router, screen, machine, check_interval):
         self.router = router
@@ -30,7 +30,6 @@ class Manager(object):
         self.screen.manager = self
         self.planner.manager = self
 
-
     def start(self):
         """
         Start asynchronous jobs.
@@ -41,7 +40,6 @@ class Manager(object):
         self.status_loop.start(15, now=True)
 
         log.msg('Manager started.')
-
 
     def send_status(self):
         """
@@ -66,14 +64,13 @@ class Manager(object):
             },
         }
 
-        if self.screen.url1:
-            message['status']['urlRight'] = self.screen.url1
+        if self.screen.sidebar_uri is not None:
+            message['status']['urlRight'] = self.screen.sidebar_uri
 
-        if self.screen.url2:
-            message['status']['urlBottom'] = self.screen.url2
+        if self.screen.panel_uri is not None:
+            message['status']['urlBottom'] = self.screen.panel_uri
 
         self.router.send(message)
-
 
     def on_message(self, message, sender):
         """
@@ -98,21 +95,18 @@ class Manager(object):
         else:
             log.msg('Message {} not implemented.'.format(message['type']))
 
-
     def on_resolution(self, resolution):
         """
         Leader requests that we change our layout.
         """
 
-        self.screen.setMode(resolution.get('type'))
-        self.screen.setUrl1(resolution.get('urlRight'))
-        self.screen.setUrl2(resolution.get('urlBottom'))
-
+        self.screen.set_mode(resolution.get('type', 'full'))
+        self.screen.set_sidebar_uri(resolution.get('urlRight'))
+        self.screen.set_panel_uri(resolution.get('urlBottom'))
 
     def on_plan(self, plan):
         """Leader requests that we adjust out plan."""
         self.planner.change_plan(plan)
-
 
     def poweron(self, force=False):
         """
@@ -122,7 +116,6 @@ class Manager(object):
         if get_power_status() not in ('on', 'to-on'):
             log.msg('Turning connected displays on...')
             set_power_status('on')
-
 
     def poweroff(self, force=False):
         """

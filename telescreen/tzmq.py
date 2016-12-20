@@ -1,8 +1,6 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-__all__ = ['Router']
-
 from twisted.internet import reactor
 from twisted.internet.interfaces import IFileDescriptor, IReadDescriptor
 from zope.interface import implementer
@@ -11,6 +9,9 @@ from time import time
 from uuid import uuid4
 
 import zmq
+
+
+__all__ = ['Router']
 
 
 @implementer(IReadDescriptor, IFileDescriptor)
@@ -130,11 +131,11 @@ class Router(object):
 
 
 if __name__ == '__main__':
-    server = Router(identity='server')\
-                .bind('tcp://127.0.0.1:4321')
+    server = Router(identity='server')
+    server.bind('tcp://127.0.0.1:4321')
 
-    client = Router(default_recipient='server')\
-                .connect('tcp://127.0.0.1:4321')
+    client = Router(default_recipient='server')
+    client.connect('tcp://127.0.0.1:4321')
 
     def client_received(msg, sender):
         print('client received', msg)
