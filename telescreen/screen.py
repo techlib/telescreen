@@ -36,8 +36,8 @@ class Screen(ApplicationWindow):
         self.fixed = Fixed.new()
         self.player = Embed.new()
 
-        self.right = WebView()
-        self.bottom = WebView()
+        self.sidebar = WebView()
+        self.panel = WebView()
 
         self.stage = self.player.get_stage()
         self.stage.set_size(1920, 1080)
@@ -46,8 +46,8 @@ class Screen(ApplicationWindow):
         self.set_logo(dirname(__file__) + '/logo.png')
 
         self.fixed.add(self.player)
-        self.fixed.add(self.right)
-        self.fixed.add(self.bottom)
+        self.fixed.add(self.sidebar)
+        self.fixed.add(self.panel)
 
         self.manager = None
         self.add(self.fixed)
@@ -88,8 +88,8 @@ class Screen(ApplicationWindow):
             self.player.set_size_request(width, height)
             self.stage.set_size(width, height)
 
-            self.right.hide()
-            self.bottom.hide()
+            self.sidebar.hide()
+            self.panel.hide()
 
         elif self.mode == 'right':
             size = height / 3 * 4
@@ -99,11 +99,11 @@ class Screen(ApplicationWindow):
             self.fixed.move(self.player, 0, 0)
             self.player.set_size_request(size, height)
 
-            self.right.show()
-            self.fixed.move(self.right, size, 0)
-            self.right.set_size_request(width-size, height)
+            self.sidebar.show()
+            self.fixed.move(self.sidebar, size, 0)
+            self.sidebar.set_size_request(width-size, height)
 
-            self.bottom.hide()
+            self.panel.hide()
 
         elif self.mode == 'both':
             panel = height / 12
@@ -114,13 +114,13 @@ class Screen(ApplicationWindow):
             self.player.set_size_request(size, height - panel)
             self.stage.set_size(size, height)
 
-            self.right.show()
-            self.fixed.move(self.right, size, 0)
-            self.right.set_size_request(width - size, height - panel)
+            self.sidebar.show()
+            self.fixed.move(self.sidebar, size, 0)
+            self.sidebar.set_size_request(width - size, height - panel)
 
-            self.bottom.show()
-            self.fixed.move(self.bottom, 0, height - panel)
-            self.bottom.set_size_request(width, panel)
+            self.panel.show()
+            self.fixed.move(self.panel, 0, height - panel)
+            self.panel.set_size_request(width, panel)
 
     def on_delete(self, target, event):
         """
@@ -152,13 +152,13 @@ class Screen(ApplicationWindow):
         self.sidebar_uri = uri
 
         if uri is not None:
-            self.right.load_uri(uri)
+            self.sidebar.load_uri(uri)
 
     def set_panel_uri(self, uri):
         self.panel_uri = uri
 
         if uri is not None:
-            self.bottom.load_uri(uri)
+            self.panel.load_uri(uri)
 
 
 class Item(object):
