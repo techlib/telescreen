@@ -62,18 +62,18 @@ from getopt import gnu_getopt
 from sys import argv, stderr, exit
 
 
-def do_start(connect_to, machine, check_interval):
+def do_start(connect_to, identity):
     # Start Twisted logging to console.
     log.startLogging(stderr)
 
-    # Obtain the unique machine identifier.
-    if machine is None:
+    # Obtain the unique identity identifier.
+    if identity is None:
         with open('/etc/machine-id') as fp:
-            machine = fp.read().strip()
+            identity = fp.read().strip()
 
     # Prepare a 0MQ router instance for communication with the
     # leader that publishes our indoctrination schedule.
-    router = Router(machine, default_recipient='leader')
+    router = Router(identity, default_recipient='leader')
     router.connect(connect_to)
 
     # Prepare the screen that is presented to the user.
@@ -84,7 +84,7 @@ def do_start(connect_to, machine, check_interval):
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(router, screen, machine, check_interval)
+    manager = Manager(router, screen)
 
     # Route 0MQ messages to the manager.
     router.on_message = manager.on_message
@@ -127,8 +127,7 @@ def main():
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
-    machine = None
-    check_interval = 300
+    identity = None
 
     for k, v in opts:
         if k in ('--help', '-h'):
@@ -138,12 +137,10 @@ def main():
         elif k in ('--connect', '-c'):
             connect_to = v
         elif k in ('--id', '-d'):
-            machine = v
-        elif k in ('--check-interval', '-i'):
-            check_interval = int(v)
+            identity = v
 
     # Perform the selected action.
-    action(connect_to, machine, check_interval)
+    action(connect_to, identity)
 
 
 if __name__ == '__main__':

@@ -48,7 +48,6 @@ class Screen(ApplicationWindow):
         self.fixed.add(self.sidebar)
         self.fixed.add(self.panel)
 
-        self.manager = None
         self.add(self.fixed)
 
         self.connect('delete-event', self.on_delete)
@@ -173,9 +172,8 @@ class Item(object):
     Playlist item with its associated Actor and GStreamer pipeline.
     """
 
-    def __init__(self, planner, url):
-        self.screen = planner.screen
-        self.planner = planner
+    def __init__(self, scheduler, url):
+        self.scheduler = scheduler
         self.url = url
 
         self.state = 'stopped'
@@ -200,19 +198,8 @@ class Item(object):
         raise NotImplementedError('make_pipeline')
 
     def play(self):
-        """
-        Stop all playing items and start playing this one.
-        """
-
-        for item in self.planner.playing_items:
-            if item is not self:
-                item.stop()
-
-        self.planner.playing_items.append(self)
-        self.planner.next()
-        self.planner.manager.send_status()
+        """Start playing the item and make the actor appear."""
         self.pipeline.set_state(State.PLAYING)
-        self.planner.manager.poweron()
 
     def pause(self):
         """Pause the pipeline without touching the actor."""
@@ -224,9 +211,6 @@ class Item(object):
         """
 
         self.pipeline.set_state(State.NULL)
-        if self in self.planner.playing_items:
-            self.planner.playing_items.remove(self)
-
         self.disappear()
 
     def appear(self):
@@ -255,7 +239,7 @@ class Item(object):
         """
 
         if MessageType.EOS == msg.type:
-            self.planner.stopped(self)
+            self.scheduler.on_item_stopped(self)
             return self.stop()
 
         fit_actor_to_parent(self.actor)
@@ -265,15 +249,15 @@ class Item(object):
 
             if new == new.PLAYING and self.state != 'playing':
                 self.state = 'playing'
-                return self.planner.playing(self)
+                return self.scheduler.on_item_playing(self)
 
             if new in (new.READY, new.PAUSED) and self.state != 'paused':
                 self.state = 'paused'
-                return self.planner.paused(self)
+                return self.scheduler.on_item_paused(self)
 
             if new == new.NULL and self.state != 'stopped':
                 self.state = 'stopped'
-                return self.planner.stopped(self)
+                return self.scheduler.on_item_stopped(self)
 
         elif MessageType.ERROR == msg.type:
             error, info = msg.parse_error()
@@ -287,10 +271,10 @@ class Item(object):
 
         if 'opacity' == name:
             if 0 == actor.get_opacity():
-                return self.planner.disappeared(self)
+                return self.scheduler.on_item_disappeared(self)
 
             if 255 == actor.get_opacity():
-                return self.planner.appeared(self)
+                return self.scheduler.on_item_appeared(self)
 
     def __repr__(self):
         return '{0}(url={1!r})'.format(type(self).__name__, self.url)
