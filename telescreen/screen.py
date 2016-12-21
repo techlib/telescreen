@@ -31,8 +31,6 @@ class Screen(ApplicationWindow):
 
     def __init__(self):
         super().__init__(title='Telescreen')
-        self.mode = 'full'
-
         self.fixed = Fixed.new()
         self.player = Embed.new()
 
@@ -55,8 +53,11 @@ class Screen(ApplicationWindow):
         self.connect('delete-event', self.on_delete)
         self.connect('check-resize', self.on_resize)
 
-        self.sidebar_uri = None
-        self.panel_uri = None
+        self.layout = {
+            'mode': 'full',
+            'sidebar': None,
+            'panel': None,
+        }
 
     def start(self):
         """
@@ -82,7 +83,7 @@ class Screen(ApplicationWindow):
         if width <= 0 or width < height or height <= 0:
             return
 
-        if self.mode == 'full':
+        if self.layout['mode'] == 'full':
             self.player.show()
             self.fixed.move(self.player, 0, 0)
             self.player.set_size_request(width, height)
@@ -91,7 +92,7 @@ class Screen(ApplicationWindow):
             self.sidebar.hide()
             self.panel.hide()
 
-        elif self.mode == 'sidebar':
+        elif self.layout['mode'] == 'sidebar':
             size = height / 3 * 4
 
             self.player.show()
@@ -105,7 +106,7 @@ class Screen(ApplicationWindow):
 
             self.panel.hide()
 
-        elif self.mode == 'panel':
+        elif self.layout['mode'] == 'panel':
             panel = height / 12
             size = (height - panel) * 4 / 3
 
@@ -144,30 +145,26 @@ class Screen(ApplicationWindow):
         self.stage.set_content(clutter_image_from_file(path))
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
-    def set_mode(self, mode):
-        if mode == self.mode:
-            return
+    def set_layout(self, layout):
+        """
+        Change the screen layout.
 
-        self.mode = mode
-        self.on_resize(self)
+        Layout is a dictionary with ``mode``, ``sidebar``, and ``panel`` keys.
+        Valid values for ``mode`` are ``full``, ``sidebar``, and ``panel``.
 
-    def set_sidebar_uri(self, uri):
-        if uri == self.sidebar_uri:
-            return
+        - ``full`` represents a fullscreen video with no web content.
+        - ``sidebar`` shrinks video to 4:3 and adds a web sidebar.
+        - ``panel`` builds on the ``sidebar`` and adds a bottom web panel.
 
-        self.sidebar_uri = uri
+        Both ``sidebar`` and ``panel`` key values are valid URLs or None.
+        """
 
-        if uri is not None:
-            self.sidebar.load_uri(uri)
+        if self.layout != layout:
+            self.layout = layout
+            self.on_resize(self)
 
-    def set_panel_uri(self, uri):
-        if uri == self.panel_uri:
-            return
-
-        self.panel_uri = uri
-
-        if uri is not None:
-            self.panel.load_uri(uri)
+            self.sidebar.load_uri(layout.get('sidebar') or 'about:blank')
+            self.panel.load_uri(layout.get('panel') or 'about:blank')
 
 
 class Item(object):

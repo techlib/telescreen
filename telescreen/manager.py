@@ -61,18 +61,10 @@ class Manager(object):
             'type': 'status',
             'status': {
                 'session': self.session,
-                'layout': {
-                    'mode': self.screen.mode,
-                },
+                'layout': self.screen.layout,
                 'power': get_power_status() in ('on', 'to-on'),
             },
         }
-
-        if self.screen.sidebar_uri is not None:
-            message['status']['layout']['sidebar'] = self.screen.sidebar_uri
-
-        if self.screen.panel_uri is not None:
-            message['status']['layout']['panel'] = self.screen.panel_uri
 
         self.router.send(message)
 
@@ -101,13 +93,8 @@ class Manager(object):
             log.err('Message {} not implemented.'.format(message['type']))
 
     def on_layout(self, layout):
-        """
-        Leader requests that we change our layout.
-        """
-
-        self.screen.set_mode(layout['mode'])
-        self.screen.set_sidebar_uri(layout.get('sidebar'))
-        self.screen.set_panel_uri(layout.get('panel'))
+        """Leader requests that we change our layout."""
+        self.screen.set_layout(layout)
 
     def on_plan(self, plan):
         """Leader requests that we adjust out plan."""
