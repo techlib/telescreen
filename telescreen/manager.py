@@ -12,7 +12,7 @@ from jsonschema import validate, ValidationError
 from uuid import uuid4
 
 from telescreen.schema import schema
-from telescreen.screen import VideoItem, ImageItem, AudioVideoItem
+from telescreen.screen import VideoItem, ImageItem
 from telescreen.cec import get_power_status, set_power_status
 
 
@@ -168,7 +168,7 @@ class Planner(object):
             data = self.items[0]
             self.items = self.items[1:]
 
-            if data['start'] >= now:
+            if data['end'] >= now:
                 return data
 
     def next(self):
@@ -198,9 +198,6 @@ class Planner(object):
             # plan image
             elif data['type'] == 'image':
                 item = ImageItem(self, data['url'])
-
-            elif data['type'] == 'audiovideo':
-                item = AudioVideoItem(self, data['url'])
 
             # other plan
             else:

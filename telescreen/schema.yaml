@@ -42,7 +42,6 @@ definitions:
     enum:
       - image
       - video
-      - audiovideo
 
   plan:
     type: array

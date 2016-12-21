@@ -5,7 +5,8 @@
 from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
                                   Image, ContentGravity, Color, StaticColor
 from gi.repository.ClutterGst import Content
-from gi.repository.Gst import parse_launch, State, MessageType
+from gi.repository.Gst import parse_launch, Pipeline, ElementFactory, State, \
+                              MessageType, GhostPad, PadDirection
 from gi.repository.GdkPixbuf import Pixbuf
 from gi.repository.Cogl import PixelFormat
 
@@ -21,7 +22,7 @@ from urllib.parse import quote
 from os.path import dirname
 
 
-__all__ = ['Screen', 'VideoItem', 'ImageItem', 'AudioVideoItem']
+__all__ = ['Screen', 'VideoItem', 'ImageItem']
 
 
 class Screen(ApplicationWindow):
@@ -178,8 +179,7 @@ class Item(object):
         self.url = url
 
         self.state = 'stopped'
-        self.pipeline = self.make_pipeline(url)
-        self.sink = self.pipeline.get_by_name('sink')
+        self.pipeline, self.sink = self.make_pipeline(url)
 
         content = Content.new_with_sink(self.sink)
 
@@ -255,8 +255,8 @@ class Item(object):
         """
 
         if MessageType.EOS == msg.type:
-            self.stop()
-            return self.planner.stopped(self)
+            self.planner.stopped(self)
+            return self.stop()
 
         fit_actor_to_parent(self.actor)
 
@@ -276,10 +276,9 @@ class Item(object):
                 return self.planner.stopped(self)
 
         elif MessageType.ERROR == msg.type:
+            error, info = msg.parse_error()
+            log.err('GStreamer: {} {}'.format(error, info))
             self.stop()
-            # Posibility to show broken image
-            err, debug = msg.parse_error()
-            log.err('GST Error: %s %s' % (err, debug))
 
     def on_actor_transition_stopped(self, actor, name, finished):
         """
@@ -301,48 +300,42 @@ class ImageItem(Item):
     """Still image playlist item."""
 
     def make_pipeline(self, url):
-        return parse_launch("""
-            uridecodebin uri=%s buffer-size=20971520 name=source
-                ! imagefreeze
-                ! videoscale
-                ! cluttersink name=sink
-        """.strip() % quote(url, '/:'))
+        pipeline = Pipeline()
+
+        source = ElementFactory.make('playbin3')
+        pipeline.add(source)
+
+        videosink = parse_launch('imagefreeze ! videoscale ! cluttersink name=sink')
+        realpad = videosink.find_unlinked_pad(PadDirection.SINK)
+        ghostpad = GhostPad.new(None, realpad)
+        videosink.add_pad(ghostpad)
+
+        cluttersink = videosink.get_by_name('sink')
+
+        source.set_property('uri', quote(url, '/:'))
+        source.set_property('buffer-size', 2**22)
+        source.set_property('video-sink', videosink)
+
+        return pipeline, cluttersink
 
 
 class VideoItem(Item):
     """Video playlist item."""
 
     def make_pipeline(self, url):
-        return parse_launch("""
-            uridecodebin uri=%s buffer-size=20971520 name=source
-            ! videoconvert
-            ! videoscale
-            ! cluttersink name=sink
-        """.strip() % quote(url, '/:'))
+        pipeline = Pipeline()
 
+        # FIXME: We should use playbin3, but it seemed to fail sometimes.
+        source = ElementFactory.make('playbin')
+        pipeline.add(source)
 
-# FIXME: We should not need a separate AudioVideoItem, VideoItem
-#        should be enough for us!
+        videosink = ElementFactory.make('cluttersink')
 
-class AudioVideoItem(Item):
-    """Video with audio playlist item."""
+        source.set_property('uri', quote(url, '/:'))
+        source.set_property('buffer-size', 2**22)
+        source.set_property('video-sink', videosink)
 
-    def make_pipeline(self, url):
-        return parse_launch("""
-            uridecodebin uri=%s buffer-size=20971520 name=source
-
-            source.
-            ! queue
-            ! audioconvert
-            ! audioresample
-            ! pulsesink
-
-            source.
-            ! queue
-            ! videoconvert
-            ! videoscale
-            ! cluttersink name=sink
-        """.strip() % quote(url, '/:'))
+        return pipeline, videosink
 
 
 def clutter_image_from_file(path):
