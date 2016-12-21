@@ -15,9 +15,8 @@ Source0:        %{name}-%{version}.tar.gz
 Requires:       python3, python3-libcec
 Requires:       python3-twisted, python3-simplejson, python3-jsonschema
 Requires:       python3-PyYAML, python3-gstreamer1, python3-gobject
-Requires:       gobject-introspection-devel, gtk3-devel, webkitgtk4-devel
-Requires:       gdk-pixbuf2-devel, clutter-devel, clutter-gst3-devel
-Requires:       gstreamer1-devel, libcec
+Requires:       gobject-introspection, gtk3, webkitgtk4, gdk-pixbuf2
+Requires:       clutter, clutter-gst3, gstreamer1, libcec
 
 %define debug_package %{nil}
 

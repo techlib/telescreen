@@ -14,12 +14,9 @@ First, add the [UnitedRPMs](https://github.com/UnitedRPMs/unitedrpms.github.io) 
 ```bash
 dnf install -y --exclude '*-devel' --exclude '*-debug' \
                'gstreamer1-plugins-*' gstreamer1-libav
-dnf install -y gobject-introspection-devel gtk3-devel webkitgtk4-devel \
-               gdk-pixbuf2-devel clutter-devel clutter-gst3-devel \
-               gstreamer1-devel libcec
+dnf install -y gobject-introspection gtk3 webkitgtk4 gdk-pixbuf2 clutter \
+               clutter-gst3 gstreamer1 libcec
 ```
-
-The development packages are required for their GObject introspection `.gir` files.
 
 As for the required Python modules, install them using the package manager:
 
