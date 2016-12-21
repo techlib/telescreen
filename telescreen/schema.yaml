@@ -4,42 +4,74 @@
 #
 ---
 oneOf:
-  # plan
+  #
+  # Message: plan
+  #
   - type: object
     additionalProperties: false
     required: [id, type, plan]
     properties:
-      id:
-        type: string
-        pattern: '^[0-9a-f]{32}$'
-
+      id: {$ref: '#/definitions/uuid'}
       type: {enum: [plan]}
-      plan:
-        type: array
-        items:
-          type: object
-          additionalProperties: false
-          required: [start, end, type, uri]
-          properties:
-            start: {type: number}
-            end: {type: number}
-            type: &TYPE {enum: [image, video, audiovideo]}
-            uri: &URL {type: string, pattern: '://'}
+      plan: {$ref: '#/definitions/plan'}
 
-  # resolution
+  #
+  # Message: layout
+  #
   - type: object
     additionalProperties: false
-    required: [id, type, resolution]
+    required: [id, type, layout]
     properties:
-      id: {type: string}
-      type: {enum: [resolution]}
-      resolution:
-        type: object
-        additionalProperties: false
-        required: [type]
-        properties:
-          type: {enum: [full, right, both]}
-          urlRight: *URL
-          urlBottom: *URL
+      id: {$ref: '#/definitions/uuid'}
+      type: {enum: [layout]}
+      layout: {$ref: '#/definitions/layout'}
+
+definitions:
+  uuid:
+    type: string
+    pattern: '^[0-9a-f]{32}$'
+
+  url:
+    type: string
+    pattern: '://'
+
+  timestamp:
+    type: number
+
+  mediaType:
+    enum:
+      - image
+      - video
+      - audiovideo
+
+  plan:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [start, end, type, url]
+      properties:
+        start: {$ref: '#/definitions/timestamp'}
+        end: {$ref: '#/definitions/timestamp'}
+        type: {$ref: '#/definitions/mediaType'}
+        url: {$ref: '#/definitions/url'}
+        layout: {$ref: '#/definitions/layout'}
+
+  layout:
+    type: object
+    additionalProperties: false
+    required: [mode]
+    properties:
+      mode: {enum: [full, sidebar, panel]}
+
+      sidebar:
+        oneOf:
+          - enum: [null]
+          - {$ref: '#/definitions/url'}
+
+      panel:
+        oneOf:
+          - enum: [null]
+          - {$ref: '#/definitions/url'}
 
 # EOF

@@ -61,16 +61,18 @@ class Manager(object):
             'type': 'status',
             'status': {
                 'session': self.session,
+                'layout': {
+                    'mode': self.screen.mode,
+                },
                 'power': get_power_status() in ('on', 'to-on'),
-                'type': self.screen.mode,
             },
         }
 
         if self.screen.sidebar_uri is not None:
-            message['status']['urlRight'] = self.screen.sidebar_uri
+            message['status']['layout']['sidebar'] = self.screen.sidebar_uri
 
         if self.screen.panel_uri is not None:
-            message['status']['urlBottom'] = self.screen.panel_uri
+            message['status']['layout']['panel'] = self.screen.panel_uri
 
         self.router.send(message)
 
@@ -86,6 +88,7 @@ class Manager(object):
             validate(message, schema)
         except ValidationError as e:
             log.err('Invalid message received: {}'.format(repr(message)))
+            log.err(e.path)
             return
 
         log.msg('Received {} message...'.format(message['type']))
@@ -97,14 +100,14 @@ class Manager(object):
         else:
             log.err('Message {} not implemented.'.format(message['type']))
 
-    def on_resolution(self, resolution):
+    def on_layout(self, layout):
         """
         Leader requests that we change our layout.
         """
 
-        self.screen.set_mode(resolution.get('type', 'full'))
-        self.screen.set_sidebar_uri(resolution.get('urlRight'))
-        self.screen.set_panel_uri(resolution.get('urlBottom'))
+        self.screen.set_mode(layout['mode'])
+        self.screen.set_sidebar_uri(layout.get('sidebar'))
+        self.screen.set_panel_uri(layout.get('panel'))
 
     def on_plan(self, plan):
         """Leader requests that we adjust out plan."""
@@ -205,14 +208,14 @@ class Planner(object):
 
             # plan video
             if data['type'] == 'video':
-                item = VideoItem(self, data['uri'])
+                item = VideoItem(self, data['url'])
 
             # plan image
             elif data['type'] == 'image':
-                item = ImageItem(self, data['uri'])
+                item = ImageItem(self, data['url'])
 
             elif data['type'] == 'audiovideo':
-                item = AudioVideoItem(self, data['uri'])
+                item = AudioVideoItem(self, data['url'])
 
             # other plan
             else:
@@ -239,7 +242,7 @@ class Planner(object):
         play_in = max(start - now, 0)
         stop_in = max(end - now, 0)
 
-        log.msg('Schedule {0!r} in {1!r}s.'.format(item.uri, play_in))
+        log.msg('Schedule {0!r} in {1!r}s.'.format(item.url, play_in))
 
         self.events.append(reactor.callLater(play_in, item.play))
         self.events.append(reactor.callLater(stop_in, item.stop))
@@ -248,32 +251,32 @@ class Planner(object):
         '''
         set playing indicator and show item
         '''
-        log.msg('Item %r playing.' % item.uri)
+        log.msg('Item %r playing.' % item.url)
         item.appear()
 
     def paused(self, item):
         '''
         set paused indicator
         '''
-        log.msg('Item %r paused.' % item.uri)
+        log.msg('Item %r paused.' % item.url)
 
     def stopped(self, item):
         '''
         set stop indicator and hide item
         '''
-        log.msg('Item %r stopped.' % item.uri)
+        log.msg('Item %r stopped.' % item.url)
 
     def appeared(self, item):
         '''
         set appered indicator
         '''
-        log.msg('Item %r appeared.' % item.uri)
+        log.msg('Item %r appeared.' % item.url)
 
     def disappeared(self, item):
         '''
         set disappeared indicator and remove item
         '''
-        log.msg('Item %r disappeared.' % item.uri)
+        log.msg('Item %r disappeared.' % item.url)
         self.screen.stage.remove_child(item.actor)
 
 

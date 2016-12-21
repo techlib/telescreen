@@ -91,7 +91,7 @@ class Screen(ApplicationWindow):
             self.sidebar.hide()
             self.panel.hide()
 
-        elif self.mode == 'right':
+        elif self.mode == 'sidebar':
             size = height / 3 * 4
 
             self.player.show()
@@ -105,7 +105,7 @@ class Screen(ApplicationWindow):
 
             self.panel.hide()
 
-        elif self.mode == 'both':
+        elif self.mode == 'panel':
             panel = height / 12
             size = (height - panel) * 4 / 3
 
@@ -145,16 +145,25 @@ class Screen(ApplicationWindow):
         self.stage.set_content_gravity(ContentGravity.CENTER)
 
     def set_mode(self, mode):
+        if mode == self.mode:
+            return
+
         self.mode = mode
         self.on_resize(self)
 
     def set_sidebar_uri(self, uri):
+        if uri == self.sidebar_uri:
+            return
+
         self.sidebar_uri = uri
 
         if uri is not None:
             self.sidebar.load_uri(uri)
 
     def set_panel_uri(self, uri):
+        if uri == self.panel_uri:
+            return
+
         self.panel_uri = uri
 
         if uri is not None:
@@ -166,13 +175,13 @@ class Item(object):
     Playlist item with its associated Actor and GStreamer pipeline.
     """
 
-    def __init__(self, planner, uri):
+    def __init__(self, planner, url):
         self.screen = planner.screen
         self.planner = planner
-        self.uri = uri
+        self.url = url
 
         self.state = 'stopped'
-        self.pipeline = self.make_pipeline(uri)
+        self.pipeline = self.make_pipeline(url)
         self.sink = self.pipeline.get_by_name('sink')
 
         content = Content.new_with_sink(self.sink)
@@ -189,7 +198,7 @@ class Item(object):
         self.actor.connect('transition-stopped',
                            self.on_actor_transition_stopped)
 
-    def make_pipeline(self, uri):
+    def make_pipeline(self, url):
         """Create GStreamer pipeline for playback of this item."""
         raise NotImplementedError('make_pipeline')
 
@@ -288,34 +297,31 @@ class Item(object):
                 return self.planner.appeared(self)
 
     def __repr__(self):
-        return '{0}(uri={1!r})'.format(type(self).__name__, self.uri)
+        return '{0}(url={1!r})'.format(type(self).__name__, self.url)
 
 
 class ImageItem(Item):
     """Still image playlist item."""
 
-    def make_pipeline(self, uri):
+    def make_pipeline(self, url):
         return parse_launch("""
             uridecodebin uri=%s buffer-size=20971520 name=source
                 ! imagefreeze
                 ! videoscale
                 ! cluttersink name=sink
-        """.strip() % quote(uri, '/:'))
+        """.strip() % quote(url, '/:'))
 
 
 class VideoItem(Item):
     """Video playlist item."""
 
-    def make_pipeline(self, uri):
+    def make_pipeline(self, url):
         return parse_launch("""
-            uridecodebin
-                uri=%s
-                buffer-size=20971520
-                name=source
+            uridecodebin uri=%s buffer-size=20971520 name=source
             ! videoconvert
             ! videoscale
             ! cluttersink name=sink
-        """.strip() % quote(uri, '/:'))
+        """.strip() % quote(url, '/:'))
 
 
 # FIXME: We should not need a separate AudioVideoItem, VideoItem
@@ -324,12 +330,9 @@ class VideoItem(Item):
 class AudioVideoItem(Item):
     """Video with audio playlist item."""
 
-    def make_pipeline(self, uri):
+    def make_pipeline(self, url):
         return parse_launch("""
-            uridecodebin
-                uri=%s
-                buffer-size=20971520
-                name=source
+            uridecodebin uri=%s buffer-size=20971520 name=source
 
             source.
             ! queue
@@ -342,7 +345,7 @@ class AudioVideoItem(Item):
             ! videoconvert
             ! videoscale
             ! cluttersink name=sink
-        """.strip() % quote(uri, '/:'))
+        """.strip() % quote(url, '/:'))
 
 
 def clutter_image_from_file(path):
