@@ -54,8 +54,6 @@ class Manager(object):
         if len(self.planner.playing_items) == 0:
             self.poweroff()
 
-        # FIXME: The `id` field should be something more volatile.
-        #        It is there not to identity the device, but the message.
         message = {
             'id': uuid4().hex,
             'type': 'status',
