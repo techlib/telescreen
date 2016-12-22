@@ -53,6 +53,7 @@ from gi.repository.Gtk import Application
 # Import all application handles.
 from telescreen import Manager, Screen
 from telescreen.tzmq import Router
+from telescreen.cec import CEC
 
 # Get rest of the Twisted.
 from twisted.python import log
@@ -79,12 +80,15 @@ def do_start(connect_to, identity):
     # Prepare the screen that is presented to the user.
     screen = Screen()
 
+    # Prepare the CEC adapter.
+    cec = CEC()
+
     # Set the correct thread pool size for the manager.
     reactor.suggestThreadPoolSize(2)
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
-    manager = Manager(router, screen)
+    manager = Manager(router, screen, cec)
 
     # Route 0MQ messages to the manager.
     router.on_message = manager.on_message

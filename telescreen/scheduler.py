@@ -10,7 +10,6 @@ from time import time
 from datetime import datetime
 
 from telescreen.screen import VideoItem, ImageItem
-from telescreen.cec import get_power_status, set_power_status
 
 
 __all__ = ['Scheduler']

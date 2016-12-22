@@ -1,6 +1,10 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
+from twisted.internet.task import LoopingCall
+from twisted.internet import reactor
+from twisted.python import log
+
 #
 # FIXME: Workaround for broken python3-libcec
 #
@@ -18,31 +22,79 @@ sys.path.append(os.path.join(get_python_lib(1), 'cec'))
 import cec
 
 
-__all__ = ['get_power_status', 'set_power_status']
+__all__ = ['CEC']
 
 
-def get_power_status():
+class CEC(object):
     """
-    Determine aggregate power status of all connected devices.
-
-    Valid power statuses are 'on', 'standby', 'to-on', 'to-standby',
-    and 'unknown'.
-
-    - When all devices agree on a status, returns that status.
-
-    - When device statuses disagree, returns 'unknown'.
-
-    - When some devices are transitioning and some have already reached
-      the target status, returns 'to-on' or 'to-standby' respectively.
-
-    - When there are not devices, returns 'on'.
+    TV power control using HDMI sub-protocol CEC.
     """
 
-    statuses = []
+    def __init__(self):
+        self.status = 'unknown'
+        self.devices = []
 
-    for adapter in cec.AdapterVector():
-        for device in adapter.GetActiveDevices():
-            status = adapter.GetDevicePowerStatus(device)
+    def start(self):
+        """
+        Start periodic tasks, such as power status querying.
+        """
+
+        log.msg('Looking for CEC adapters...')
+        if not self.connect():
+            log.err('No CEC adapters found, aborting.')
+            return
+
+        log.msg('Detected CEC devices: {0!r}'.format(self.devices))
+
+        log.msg('Starting CEC periodic tasks...')
+        self.status_loop = LoopingCall(self.query_power_status)
+        self.status_loop.start(15)
+
+        log.msg('CEC started.')
+
+    def connect(self):
+        # Prepare configuration
+        config = cec.libcec_configuration()
+        config.strDeviceName = 'Telescreen'
+        config.bActivateSource = 0
+        config.clientVersion = cec.LIBCEC_VERSION_CURRENT
+        config.deviceTypes.Add(cec.CEC_DEVICE_TYPE_TV)
+
+        # Create client context
+        self.lib = cec.ICECAdapter.Create(config)
+
+        # Query adapters and use the first one we find.
+        adapters = self.lib.DetectAdapters()
+
+        if len(adapters) == 0:
+            return False
+
+        path = adapters[0].strComName
+
+        log.msg('Opening CEC adapter {}...'.format(path))
+        if not self.lib.Open(path):
+            log.err('Failed to open CEC adapter {}, aborting.'.format(path))
+            return False
+
+        # Get a bit mask of active devices we can control.
+        devices = lib.GetActiveDevices()
+
+        self.devices = []
+        for i in range(0, 15):
+            if devices.IsSet(i):
+                self.devices.append(i)
+
+        return True
+
+    def query_power_status(self):
+        """
+        Query power status of our device.
+        """
+
+        statuses = []
+
+        for device in self.devices:
+            status = lib.GetDevicePowerStatus(device)
 
             if status == cec.CEC_POWER_STATUS_ON:
                 statuses.append('on')
@@ -55,37 +107,34 @@ def get_power_status():
             else:
                 statuses.append('unknown')
 
-    def and_status(a, b):
-        if a == b:
-            return a
-        elif 'on' in (a, b) and 'to-on' in (a, b):
-            return 'to-on'
-        elif 'standby' in (a, b) and 'to-standby' in (a, b):
-            return 'to-standby'
-        else:
-            return 'unknown'
+        def and_status(a, b):
+            if a == b:
+                return a
+            elif 'on' in (a, b) and 'to-on' in (a, b):
+                return 'to-on'
+            elif 'standby' in (a, b) and 'to-standby' in (a, b):
+                return 'to-standby'
+            else:
+                return 'unknown'
 
-    if not statuses:
-        return 'on'
+        if not statuses:
+            return 'on'
 
-    return reduce(and_status, statuses)
+        self.status = reduce(and_status, statuses)
 
+    def set_power_status(status):
+        """
+        Attempt to change the power status of all connected devices.
 
-def set_power_status(status):
-    """
-    Attempt to change the power status of all connected devices.
+        Out of the known statuses only 'on' and 'standby' can be used here.
+        """
 
-    Out of the known statuses only 'on' and 'standby' can be used here.
-    """
+        assert status in ('on', 'standby'), 'Invalid power status'
 
-    assert status in ('on', 'standby'), 'Invalid power status'
-
-    for adapter in cec.AdapterVector():
-        for device in adapter.GetActiveDevices():
-            if status == 'on':
-                adapter.PowerOnDevices(device)
-            elif status == 'standby':
-                adapter.StandbyDevices(device)
+        if status == 'on':
+            adapter.PowerOnDevices()
+        elif status == 'standby':
+            adapter.StandbyDevices()
 
 
 # vim:set sw=4 ts=4 et:

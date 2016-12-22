@@ -14,16 +14,16 @@ from uuid import uuid4
 from telescreen.schema import schema
 from telescreen.scheduler import Scheduler
 from telescreen.screen import VideoItem, ImageItem
-from telescreen.cec import get_power_status, set_power_status
 
 
 __all__ = ['Manager', 'seconds_since_midnight']
 
 
 class Manager(object):
-    def __init__(self, router, screen):
+    def __init__(self, router, screen, cec):
         self.router = router
         self.screen = screen
+        self.cec = cec
 
         # Generate new session identifier, we have just started.
         # When this changes, the next 'status' message will cause
@@ -40,6 +40,9 @@ class Manager(object):
 
         # Scheduler has its own periodic tasks.
         self.scheduler.start()
+
+        # CEC has its tasks as well.
+        self.cec.start()
 
         log.msg('Starting periodic status update...')
         self.status_loop = LoopingCall(self.send_status)
@@ -59,7 +62,7 @@ class Manager(object):
             'status': {
                 'session': self.session,
                 'layout': self.screen.layout,
-                'power': get_power_status() in ('on', 'to-on'),
+                'power': self.cec.status in ('on', 'to-on'),
             },
         })
 
@@ -94,24 +97,5 @@ class Manager(object):
     def on_plan(self, plan):
         """Leader requests that we adjust out plan."""
         reactor.callLater(0, self.scheduler.change_plan, plan)
-
-    def poweron(self, force=False):
-        """
-        Wake up all connected devices.
-        """
-
-        if get_power_status() not in ('on', 'to-on'):
-            log.msg('Turning connected displays on...')
-            set_power_status('on')
-
-    def poweroff(self, force=False):
-        """
-        Standby all connected devices.
-        """
-
-        if get_power_status() not in ('standby', 'to-standby'):
-            log.msg('Turning connected displays off...')
-            set_power_status('standby')
-
 
 # vim:set sw=4 ts=4 et:
