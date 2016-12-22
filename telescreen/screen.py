@@ -102,7 +102,7 @@ class Screen(ApplicationWindow):
 
             self.sidebar.show()
             self.fixed.move(self.sidebar, size, 0)
-            self.sidebar.set_size_request(width-size, height)
+            self.sidebar.set_size_request(width - size, height)
 
             self.panel.hide()
 
@@ -113,7 +113,7 @@ class Screen(ApplicationWindow):
             self.player.show()
             self.fixed.move(self.player, 0, 0)
             self.player.set_size_request(size, height - panel)
-            self.stage.set_size(size, height)
+            self.stage.set_size(size, height - panel)
 
             self.sidebar.show()
             self.fixed.move(self.sidebar, size, 0)
