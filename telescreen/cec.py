@@ -41,7 +41,7 @@ class CEC(object):
 
         log.msg('Looking for CEC adapters...')
         if not self.connect():
-            log.err('No CEC adapters found, aborting.')
+            log.msg('No CEC adapters found, aborting.')
             return
 
         log.msg('Detected CEC devices: {0!r}'.format(self.devices))
@@ -73,7 +73,7 @@ class CEC(object):
 
         log.msg('Opening CEC adapter {}...'.format(path))
         if not self.lib.Open(path):
-            log.err('Failed to open CEC adapter {}, aborting.'.format(path))
+            log.msg('Failed to open CEC adapter {}, aborting.'.format(path))
             return False
 
         # Get a bit mask of active devices we can control.

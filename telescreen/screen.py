@@ -260,8 +260,7 @@ class Item(object):
                 return self.scheduler.on_item_stopped(self)
 
         elif MessageType.ERROR == msg.type:
-            error, info = msg.parse_error()
-            log.err('GStreamer: {} {}'.format(error, info))
+            log.msg('GStreamer: {} {}'.format(*msg.parse_error()))
             self.stop()
 
     def on_actor_transition_stopped(self, actor, name, finished):

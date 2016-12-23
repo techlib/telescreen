@@ -77,8 +77,12 @@ class Manager(object):
         try:
             validate(message, schema)
         except ValidationError as e:
-            log.err('Invalid message received: {}'.format(repr(message)))
-            log.err(e.path)
+            if isinstance(message, dict):
+                log.msg('Invalid message received, object type {0!r}.'
+                            .format(message.get('type')))
+            else:
+                log.msg('Invalid message received, not an object.')
+
             return
 
         log.msg('Received {} message...'.format(message['type']))
@@ -88,7 +92,7 @@ class Manager(object):
             payload = message.get(message['type'], {})
             reactor.callLater(0, getattr(self, handler), payload)
         else:
-            log.err('Message {} not implemented.'.format(message['type']))
+            log.msg('Message {} not implemented.'.format(message['type']))
 
     def on_layout(self, layout):
         """Leader requests that we change our layout."""
