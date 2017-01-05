@@ -63,6 +63,7 @@ class Scheduler (Logging):
             return fn(*args, **kwargs)
 
         event = reactor.callLater(delta, wrapper)
+        self.events.add(event)
 
     def change_plan(self, plan):
         """
