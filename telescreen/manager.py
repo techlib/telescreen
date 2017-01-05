@@ -33,6 +33,9 @@ class Manager(object):
         # Create item playback scheduler.
         self.scheduler = Scheduler(screen)
 
+        # Identifier of the last plan from the leader.
+        self.plan = '0' * 32
+
     def start(self):
         """
         Start asynchronous jobs.
@@ -60,9 +63,9 @@ class Manager(object):
             'id': uuid4().hex,
             'type': 'status',
             'status': {
-                'session': self.session,
+                'plan': self.plan,
                 'layout': self.screen.layout,
-                'power': self.cec.status in ('on', 'to-on'),
+                'power': self.cec.status,
             },
         })
 
@@ -94,12 +97,21 @@ class Manager(object):
         else:
             log.msg('Message {} not implemented.'.format(message['type']))
 
-    def on_layout(self, layout):
-        """Leader requests that we change our layout."""
-        reactor.callLater(0, self.screen.set_layout, layout)
-
     def on_plan(self, plan):
-        """Leader requests that we adjust out plan."""
-        reactor.callLater(0, self.scheduler.change_plan, plan)
+        """
+        Leader requests that we adjust out plan.
+        """
+
+        if plan['id'] == self.plan:
+            log.msg('We already use plan {}, ignoring.'.format(self.plan))
+            return
+
+        self.plan = plan['id']
+
+        items = plan['items']
+        layouts = plan['layouts']
+
+        reactor.callLater(0, self.scheduler.change_item_plan, items)
+        reactor.callLater(0, self.scheduler.change_layout_plan, layouts)
 
 # vim:set sw=4 ts=4 et:

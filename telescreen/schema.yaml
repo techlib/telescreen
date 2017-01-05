@@ -3,28 +3,13 @@
 # Describes messages received from Indoktrinator.
 #
 ---
-oneOf:
-  #
-  # Message: plan
-  #
-  - type: object
-    additionalProperties: false
-    required: [id, type, plan]
-    properties:
-      id: {$ref: '#/definitions/uuid'}
-      type: {enum: [plan]}
-      plan: {$ref: '#/definitions/plan'}
-
-  #
-  # Message: layout
-  #
-  - type: object
-    additionalProperties: false
-    required: [id, type, layout]
-    properties:
-      id: {$ref: '#/definitions/uuid'}
-      type: {enum: [layout]}
-      layout: {$ref: '#/definitions/layout'}
+type: object
+additionalProperties: false
+required: [id, type, plan]
+properties:
+  id: {$ref: '#/definitions/uuid'}
+  type: {enum: [plan]}
+  plan: {$ref: '#/definitions/plan'}
 
 definitions:
   uuid:
@@ -39,29 +24,44 @@ definitions:
     type: number
 
   mediaType:
-    enum:
-      - image
-      - video
+    enum: [image, video]
 
   plan:
-    type: array
-    items:
-      type: object
-      additionalProperties: false
-      required: [start, end, type, url]
-      properties:
-        start: {$ref: '#/definitions/timestamp'}
-        end: {$ref: '#/definitions/timestamp'}
-        type: {$ref: '#/definitions/mediaType'}
-        url: {$ref: '#/definitions/url'}
-        layout: {$ref: '#/definitions/layout'}
+    type: object
+    required: [id, items, layouts]
+    properties:
+      id: {$ref: '#/definitions/uuid'}
+      items:
+        type: array
+        items: {$ref: '#/definitions/item'}
+
+      layouts:
+        type: array
+        items: {$ref: '#/definitions/layout'}
+
+  item:
+    type: object
+    additionalProperties: false
+    required: [start, end, type, url]
+    properties:
+      start: {$ref: '#/definitions/timestamp'}
+      end: {$ref: '#/definitions/timestamp'}
+      type: {$ref: '#/definitions/mediaType'}
+      url: {$ref: '#/definitions/url'}
 
   layout:
     type: object
     additionalProperties: false
-    required: [mode]
+    required: [start, end, mode, sidebar, panel]
     properties:
-      mode: {enum: [full, sidebar, panel]}
+      start:
+        type: number
+
+      end:
+        type: number
+
+      mode:
+        enum: [full, sidebar, panel]
 
       sidebar:
         oneOf:

@@ -28,12 +28,12 @@ class Scheduler(object):
     def __init__(self, screen):
         self.screen = screen
 
-        # The whole current plan.
+        # The whole current plan of playback items.
         # Used only to detect changes when a new plan is installed.
-        self.plan = []
+        self.item_plan = []
 
         # Items remaining in the plan.
-        self.queue = []
+        self.item_queue = []
 
         # Items that are currently instantiated.
         self.items = set()
@@ -66,7 +66,7 @@ class Scheduler(object):
 
         event = reactor.callLater(delta, wrapper)
 
-    def change_plan(self, plan):
+    def change_item_plan(self, plan):
         """
         Install new plan from the leader and immediately reschedule.
         """
@@ -74,21 +74,13 @@ class Scheduler(object):
         # First, sort the new plan by event start times.
         plan.sort(key=lambda item: item['start'])
 
-        # FIXME: Rebase all the timestamps to the last midnight.
-        #        This is something leader should do for us.
-        midnight = last_midnight()
-
-        for item in plan:
-            item['start'] += midnight
-            item['end'] += midnight
-
         # Queue will be modified, plan will stay as it is.
         queue = list(plan)
 
         # We need to make sure that the plan actually changed before
         # doing anything destructive, such as stopping current playback.
         now = time()
-        cur = plan_window(self.plan, now, now + 60)
+        cur = plan_window(self.item_plan, now, now + 60)
         new = plan_window(plan, now, now + 60)
 
         if cur != new:
@@ -115,8 +107,8 @@ class Scheduler(object):
             pop_queue_items(queue, now=now)
 
         # Install new plan and new queue.
-        self.plan = plan
-        self.queue = queue
+        self.item_plan = plan
+        self.item_queue = queue
 
         # Schedule some items.
         self.schedule(now)
@@ -129,7 +121,7 @@ class Scheduler(object):
         facilitate transition from the current to the incoming plan.
         """
 
-        for item in pop_queue_items(self.queue, now=now):
+        for item in pop_queue_items(self.item_queue, now=now):
             self.schedule_item(item)
 
     def schedule_item(self, data):
@@ -150,6 +142,10 @@ class Scheduler(object):
         self.add_event(data['start'], item.play)
         self.add_event(data['end'], item.stop)
 
+    def change_layout_plan(self, plan):
+        # TODO: Add support for layout scheduling.
+        pass
+
     def on_item_playing(self, item):
         item.appear()
 
@@ -165,16 +161,6 @@ class Scheduler(object):
     def on_item_disappeared(self, item):
         self.screen.stage.remove_child(item.actor)
         self.items.discard(item)
-
-
-def last_midnight():
-    """
-    Return timestamp of the last midnight.
-    """
-
-    now = datetime.now()
-    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    return midnight.timestamp()
 
 
 def plan_window(plan, ending_after, starting_before):
