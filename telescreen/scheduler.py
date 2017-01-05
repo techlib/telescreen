@@ -205,7 +205,11 @@ class LayoutScheduler (Scheduler):
         """
 
         self.msg('Schedule layout change to {} mode...'.format(task['mode']))
-        self.add_event(task['start'], self.screen.set_layout, task)
+        self.add_event(task['start'], self.screen.set_layout, {
+            'mode': task['mode'],
+            'panel': task['panel'],
+            'sidebar': task['sidebar'],
+        })
 
 
 def plan_window(plan, ending_after, starting_before):
