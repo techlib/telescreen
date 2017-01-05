@@ -213,7 +213,7 @@ def pop_queue_tasks(queue, secs=60, now=None):
             continue
 
         # Stop at tasks too far in the future.
-        if queue[0]['start'] > now + 60:
+        if task['start'] > now + 60:
             queue.insert(0, task)
             break
 
