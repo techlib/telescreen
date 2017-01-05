@@ -12,7 +12,7 @@ from jsonschema import validate, ValidationError
 from uuid import uuid4
 
 from telescreen.schema import schema
-from telescreen.scheduler import Scheduler
+from telescreen.scheduler import ItemScheduler
 from telescreen.screen import VideoItem, ImageItem
 
 
@@ -31,7 +31,7 @@ class Manager(object):
         self.session = uuid4().hex
 
         # Create item playback scheduler.
-        self.scheduler = Scheduler(screen)
+        self.item_scheduler = ItemScheduler(screen)
 
         # Identifier of the last plan from the leader.
         self.plan = '0' * 32
@@ -41,8 +41,8 @@ class Manager(object):
         Start asynchronous jobs.
         """
 
-        # Scheduler has its own periodic tasks.
-        self.scheduler.start()
+        # Schedulers have their own periodic tasks.
+        self.item_scheduler.start()
 
         # CEC has its tasks as well.
         self.cec.start()
@@ -109,9 +109,7 @@ class Manager(object):
         self.plan = plan['id']
 
         items = plan['items']
-        layouts = plan['layouts']
 
-        reactor.callLater(0, self.scheduler.change_item_plan, items)
-        reactor.callLater(0, self.scheduler.change_layout_plan, layouts)
+        reactor.callLater(0, self.item_scheduler.change_plan, items)
 
 # vim:set sw=4 ts=4 et:

@@ -12,31 +12,29 @@ from datetime import datetime
 from telescreen.screen import VideoItem, ImageItem
 
 
-__all__ = ['Scheduler']
+__all__ = ['Scheduler', 'ItemScheduler']
 
 
-class Scheduler(object):
+ITEM_TYPES = {
+    'video': VideoItem,
+    'image': ImageItem,
+}
+
+
+class Scheduler:
     """
-    Executes planned items on the screen and handles display power.
+    Facilitates precise task planning and smooth plan transitions.
     """
 
-    ITEM_TYPES = {
-        'video': VideoItem,
-        'image': ImageItem,
-    }
+    def __init__(self):
+        # Current plan is only used to detect differences to a new plan.
+        self.plan = []
 
-    def __init__(self, screen):
-        self.screen = screen
+        # Items remaining in the plan to be scheduled later.
+        self.queue = []
 
-        # The whole current plan of playback items.
-        # Used only to detect changes when a new plan is installed.
-        self.item_plan = []
-
-        # Items remaining in the plan.
-        self.item_queue = []
-
-        # Items that are currently instantiated.
-        self.items = set()
+        # Tasks that are currently running.
+        self.tasks = set()
 
         # Scheduled events such as play and stop.
         self.events = set()
@@ -66,13 +64,13 @@ class Scheduler(object):
 
         event = reactor.callLater(delta, wrapper)
 
-    def change_item_plan(self, plan):
+    def change_plan(self, plan):
         """
         Install new plan from the leader and immediately reschedule.
         """
 
         # First, sort the new plan by event start times.
-        plan.sort(key=lambda item: item['start'])
+        plan.sort(key=lambda task: task['start'])
 
         # Queue will be modified, plan will stay as it is.
         queue = list(plan)
@@ -80,16 +78,16 @@ class Scheduler(object):
         # We need to make sure that the plan actually changed before
         # doing anything destructive, such as stopping current playback.
         now = time()
-        cur = plan_window(self.item_plan, now, now + 60)
+        cur = plan_window(self.plan, now, now + 60)
         new = plan_window(plan, now, now + 60)
 
         if cur != new:
             log.msg('Resetting schedule...')
 
-            # Stop and get rid of all currently instantiated items.
-            for item in list(self.items):
-                self.items.discard(item)
-                item.stop()
+            # Stop and get rid of all currently instantiated tasks.
+            for task in list(self.tasks):
+                self.tasks.discard(task)
+                self.stop_task(task)
 
             # Cancel all pending events.
             for event in list(self.events):
@@ -103,36 +101,59 @@ class Scheduler(object):
             self.schedule(now)
 
             # Work through the new queue up to the same point so that
-            # the handoff will go smoothly and items won't overlap.
-            pop_queue_items(queue, now=now)
+            # the handoff will go smoothly and tasks won't overlap.
+            pop_queue_tasks(queue, now=now)
 
         # Install new plan and new queue.
-        self.item_plan = plan
-        self.item_queue = queue
+        self.plan = plan
+        self.queue = queue
 
-        # Schedule some items.
+        # Schedule some tasks.
         self.schedule(now)
 
     def schedule(self, now=None):
         """
-        Schedule items coming up in the next minute.
+        Schedule tasks coming up in the next minute.
 
         It is possible to give a specific current time in order to
         facilitate transition from the current to the incoming plan.
         """
 
-        for item in pop_queue_items(self.item_queue, now=now):
-            self.schedule_item(item)
+        for task in pop_queue_tasks(self.queue, now=now):
+            self.schedule_task(task)
 
-    def schedule_item(self, data):
+    def schedule_task(self, data):
+        """Schedule the scheduler-specific task now."""
+        raise NotImplementedError('schedule_task')
+
+    def stop_task(self, task):
+        """Stop a running scheduler-specific task."""
+        raise NotImplementedError('stop_task')
+
+    def add_task(self, task):
+        """Add new running task."""
+        self.tasks.add(task)
+
+    def discard_task(self, task):
+        """Discard a terminated task."""
+        self.tasks.discard(task)
+
+
+class ItemScheduler (Scheduler):
+    def __init__(self, screen):
+        super().__init__()
+
+        self.screen = screen
+
+    def schedule_task(self, data):
         """
         Schedule playback of a specific item.
         """
 
         # Create the item using the correct class and register it.
-        ItemType = Scheduler.ITEM_TYPES[data['type']]
+        ItemType = ITEM_TYPES[data['type']]
         item = ItemType(self, data['url'])
-        self.items.add(item)
+        self.add_task(item)
 
         # Put the item actor on the screen and start buffering.
         self.screen.stage.add_child(item.actor)
@@ -142,9 +163,8 @@ class Scheduler(object):
         self.add_event(data['start'], item.play)
         self.add_event(data['end'], item.stop)
 
-    def change_layout_plan(self, plan):
-        # TODO: Add support for layout scheduling.
-        pass
+    def stop_task(self, item):
+        item.stop()
 
     def on_item_playing(self, item):
         item.appear()
@@ -160,7 +180,7 @@ class Scheduler(object):
 
     def on_item_disappeared(self, item):
         self.screen.stage.remove_child(item.actor)
-        self.items.discard(item)
+        self.discard_task(item)
 
 
 def plan_window(plan, ending_after, starting_before):
@@ -168,39 +188,39 @@ def plan_window(plan, ending_after, starting_before):
     Return list of items in the given window.
     """
 
-    window_items = []
+    window_tasks = []
 
-    for item in plan:
-        if ending_after < item['end'] and item['start'] < starting_before:
-            window_items.append(item)
+    for task in plan:
+        if ending_after < task['end'] and task['start'] < starting_before:
+            window_tasks.append(task)
 
-    return window_items
+    return window_tasks
 
-def pop_queue_items(queue, secs=60, now=None):
+def pop_queue_tasks(queue, secs=60, now=None):
     """
     Remove upcoming items from the queue.
     """
 
-    items = []
+    tasks = []
     if now is None:
         now = time()
 
     while len(queue) > 0:
-        item = queue.pop(0)
+        task = queue.pop(0)
 
-        # Discard items already in the past.
-        if item['end'] < now:
+        # Discard tasks already in the past.
+        if task['end'] < now:
             continue
 
-        # Stop at items too far in the future.
+        # Stop at tasks too far in the future.
         if queue[0]['start'] > now + 60:
-            queue.insert(0, item)
+            queue.insert(0, task)
             break
 
-        # Schedule this item next...
-        items.append(item)
+        # Schedule this task next...
+        tasks.append(task)
 
-    return items
+    return tasks
 
 
 # vim:set sw=4 ts=4 et:
