@@ -1,18 +1,15 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-from twisted.internet.error import AlreadyCalled
 from twisted.internet.task import LoopingCall
 from twisted.internet import reactor
 from twisted.python import log
 
-from time import time
-from datetime import datetime
-
+from telescreen.common import Logging
 from telescreen.screen import VideoItem, ImageItem
 
 
-__all__ = ['Scheduler', 'ItemScheduler']
+__all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler']
 
 
 ITEM_TYPES = {
@@ -21,7 +18,7 @@ ITEM_TYPES = {
 }
 
 
-class Scheduler:
+class Scheduler (Logging):
     """
     Facilitates precise task planning and smooth plan transitions.
     """
@@ -39,16 +36,19 @@ class Scheduler:
         # Scheduled events such as play and stop.
         self.events = set()
 
+    def log_prefix(self):
+        return 'scheduler'
+
     def start(self):
         """
         Start periodic scheduling tasks.
         """
 
-        log.msg('Starting scheduling loop...')
+        self.msg('Starting scheduling loop...')
         self.scheduling_loop = LoopingCall(self.schedule)
         self.scheduling_loop.start(5)
 
-        log.msg('Scheduler started.')
+        self.msg('Scheduler started.')
 
     def add_event(self, ts, fn, *args, **kwargs):
         """
@@ -56,7 +56,7 @@ class Scheduler:
         """
 
         event = None
-        delta = max(ts - time(), 0)
+        delta = max(ts - reactor.seconds(), 0)
 
         def wrapper():
             self.events.discard(event)
@@ -75,14 +75,19 @@ class Scheduler:
         # Queue will be modified, plan will stay as it is.
         queue = list(plan)
 
+        # Establish a common time base.
+        now = reactor.seconds()
+
+        # Catch up with the current scheduling.
+        self.schedule(now)
+
         # We need to make sure that the plan actually changed before
         # doing anything destructive, such as stopping current playback.
-        now = time()
         cur = plan_window(self.plan, now, now + 60)
         new = plan_window(plan, now, now + 60)
 
         if cur != new:
-            log.msg('Resetting schedule...')
+            self.msg('Resetting schedule...')
 
             # Stop and get rid of all currently instantiated tasks.
             for task in list(self.tasks):
@@ -95,10 +100,7 @@ class Scheduler:
                 event.cancel()
 
         else:
-            log.msg('Adjusting schedule...')
-
-            # Catch up with the current scheduling.
-            self.schedule(now)
+            self.msg('Adjusting schedule...')
 
             # Work through the new queue up to the same point so that
             # the handoff will go smoothly and tasks won't overlap.
@@ -145,25 +147,29 @@ class ItemScheduler (Scheduler):
 
         self.screen = screen
 
-    def schedule_task(self, data):
+    def log_prefix(self):
+        return 'item-sched'
+
+    def schedule_task(self, task):
         """
         Schedule playback of a specific item.
         """
 
         # Create the item using the correct class and register it.
-        ItemType = ITEM_TYPES[data['type']]
-        item = ItemType(self, data['url'])
+        ItemType = ITEM_TYPES[task['type']]
+        item = ItemType(self, task['url'])
         self.add_task(item)
 
         # Put the item actor on the screen and start buffering.
         self.screen.stage.add_child(item.actor)
         item.pause()
 
-        log.msg('Scheduling {0!r}...'.format(item))
-        self.add_event(data['start'], item.play)
-        self.add_event(data['end'], item.stop)
+        self.msg('Schedule {0!r}...'.format(item))
+        self.add_event(task['start'], item.play)
+        self.add_event(task['end'], item.stop)
 
     def stop_task(self, item):
+        self.msg('Stop {}...'.format(item))
         item.stop()
 
     def on_item_playing(self, item):
@@ -181,6 +187,24 @@ class ItemScheduler (Scheduler):
     def on_item_disappeared(self, item):
         self.screen.stage.remove_child(item.actor)
         self.discard_task(item)
+
+
+class LayoutScheduler (Scheduler):
+    def __init__(self, screen):
+        super().__init__()
+
+        self.screen = screen
+
+    def log_prefix(self):
+        return 'layout-sched'
+
+    def schedule_task(self, task):
+        """
+        Schedule layout change.
+        """
+
+        self.msg('Schedule layout change to {} mode...'.format(task['mode']))
+        self.add_event(task['start'], self.screen.set_layout, task)
 
 
 def plan_window(plan, ending_after, starting_before):
@@ -203,7 +227,7 @@ def pop_queue_tasks(queue, secs=60, now=None):
 
     tasks = []
     if now is None:
-        now = time()
+        now = reactor.seconds()
 
     while len(queue) > 0:
         task = queue.pop(0)
