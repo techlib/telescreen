@@ -127,7 +127,7 @@ def do_version(*args, **kwargs):
 
 def main():
     # Parse command line arguments.
-    opts, args = gnu_getopt(argv, 'hVi:d:', ['help', 'version', 'id=', 'connect='])
+    opts, args = gnu_getopt(argv, 'hVi:d:c:', ['help', 'version', 'id=', 'connect='])
 
     action = do_start
     connect_to = 'tcp://127.0.0.1:5001'
