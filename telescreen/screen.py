@@ -21,6 +21,8 @@ from twisted.python import log
 from urllib.parse import quote
 from os.path import dirname
 
+import gc
+
 
 __all__ = ['Screen', 'VideoItem', 'ImageItem']
 
@@ -167,72 +169,81 @@ class Screen(ApplicationWindow):
             self.panel.load_uri(layout.get('panel') or 'about:blank')
 
 
-class Item(object):
+class Item:
     """
     Playlist item with its associated Actor and GStreamer pipeline.
     """
 
-    def __init__(self, scheduler, url):
-        self.scheduler = scheduler
+    def __init__(self, url):
         self.url = url
 
-        self.state = 'stopped'
-        self.pipeline, self.sink = self.make_pipeline(url)
+        self.pipeline = None
+        self.sink = None
+        self.actor = None
+        self.bus = None
+
+    def prepare(self, screen):
+        assert self.pipeline is None, 'Cannot prepare Item twice'
+
+        self.pipeline, self.sink = self.make_pipeline(self.url)
 
         content = Content.new_with_sink(self.sink)
 
         self.actor = Actor.new()
         self.actor.set_opacity(0)
         self.actor.set_content(content)
+        screen.stage.add_child(self.actor)
+        self.actor.connect('transition-stopped', remove_actor_after_fade_out)
 
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
         self.bus.enable_sync_message_emission()
         self.bus.connect('message', self.on_message)
 
-        self.actor.connect('transition-stopped',
-                           self.on_actor_transition_stopped)
+        self.pipeline.set_state(State.PAUSED)
 
     def make_pipeline(self, url):
         """Create GStreamer pipeline for playback of this item."""
         raise NotImplementedError('make_pipeline')
 
-    def play(self):
-        """Start playing the item and make the actor appear."""
+    def start(self):
+        """
+        Start playing the item and make the actor appear.
+        """
+
+        assert self.pipeline is not None, 'Cannot start unprepared Item'
+
         self.pipeline.set_state(State.PLAYING)
-
-    def pause(self):
-        """Pause the pipeline without touching the actor."""
-        self.pipeline.set_state(State.PAUSED)
-
-    def stop(self):
-        """
-        Stop pipeline and make the actor disappear.
-        """
-
-        self.pipeline.set_state(State.NULL)
-        self.bus.remove_signal_watch()
-        self.disappear()
-
-    def appear(self):
-        """
-        Make actor appear smoothly.
-        """
 
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(255)
         self.actor.restore_easing_state()
 
-    def disappear(self):
+        # Collect the garbage to prevent excessive memory use due to
+        # large memory structures of the foreign Gst objects.
+        gc.collect()
+
+    def stop(self):
         """
-        Make actor disappear smoothly.
+        Stop pipeline and make the actor disappear.
         """
+
+        if self.pipeline is None:
+            return
+
+        self.pipeline.set_state(State.NULL)
+        self.bus.remove_signal_watch()
 
         self.actor.save_easing_state()
         self.actor.set_easing_duration(240)
         self.actor.set_opacity(0)
         self.actor.restore_easing_state()
+
+        self.pipeline = None
+        self.sink = None
+        self.bus = None
+        self.actor = None
 
     def on_message(self, bus, msg):
         """
@@ -240,47 +251,20 @@ class Item(object):
         """
 
         if MessageType.EOS == msg.type:
-            self.state = 'finished'
             self.stop()
-            return self.scheduler.on_item_stopped(self)
 
-        fit_actor_to_parent(self.actor)
-
-        if MessageType.STATE_CHANGED == msg.type:
+        elif MessageType.STATE_CHANGED == msg.type:
             old, new, pending = msg.parse_state_changed()
 
-            if new == new.PLAYING and self.state != 'playing':
-                self.state = 'playing'
-                return self.scheduler.on_item_playing(self)
-
-            if new in (new.READY, new.PAUSED) and self.state != 'paused':
-                self.state = 'paused'
-                return self.scheduler.on_item_paused(self)
-
-            if new == new.NULL and self.state != 'finished':
-                self.state = 'stopped'
-                return self.scheduler.on_item_stopped(self)
+            if old != new:
+                fit_actor_to_parent(self.actor)
 
         elif MessageType.ERROR == msg.type:
             log.msg('GStreamer: {} {}'.format(*msg.parse_error()))
-            self.state = 'finished'
             self.stop()
-            return self.scheduler.on_item_stopped(self)
-
-    def on_actor_transition_stopped(self, actor, name, finished):
-        """
-        Actor stopped its fade in/out transition.
-        """
-
-        if 'opacity' == name:
-            if 0 == actor.get_opacity():
-                return self.scheduler.on_item_disappeared(self)
-
-            if 255 == actor.get_opacity():
-                return self.scheduler.on_item_appeared(self)
 
     def __repr__(self):
-        return '{0}(url={1!r})'.format(type(self).__name__, self.url)
+        return '{}(url={!r})'.format(type(self).__name__, self.url)
 
 
 class ImageItem(Item):
@@ -292,7 +276,15 @@ class ImageItem(Item):
         source = ElementFactory.make('playbin3')
         pipeline.add(source)
 
-        videosink = parse_launch('imagefreeze ! videoscale ! cluttersink name=sink')
+        videosink = parse_launch('''
+            imagefreeze
+            ! video/x-raw, pixel-aspect-ratio=1/1, rate=1/3600
+            ! videoscale add-borders=true
+            ! video/x-raw, height=[1,2048], pixel-aspect-ratio=1/1
+            ! videoscale add-borders=true
+            ! video/x-raw, width=[1,2048], pixel-aspect-ratio=1/1
+            ! cluttersink name=sink
+        ''')
         realpad = videosink.find_unlinked_pad(PadDirection.SINK)
         ghostpad = GhostPad.new(None, realpad)
         videosink.add_pad(ghostpad)
@@ -364,23 +356,30 @@ def fit_actor_to_parent(actor):
     if parent is None:
         return
 
-    ratio = width / height
-
     parent_width = parent.get_width()
     parent_height = parent.get_height()
 
-    if ratio >= 1:
-        width = parent_width
-        height = parent_width / ratio
-    else:
-        width = parent_height * ratio
-        height = parent_height
+    width_ratio = float(parent_width) / float(width)
+    height_ratio = float(parent_height) / float(height)
+    ratio = min(width_ratio, height_ratio)
+
+    width = int(width * ratio)
+    height = int(height * ratio)
 
     actor.set_width(width)
     actor.set_height(height)
 
     actor.set_x((parent_width - width) / 2)
     actor.set_y((parent_height - height) / 2)
+
+
+def remove_actor_after_fade_out(actor, name, finished):
+    """
+    Remove actor from its parent after it fades out.
+    """
+
+    if 'opacity' == name and 0 == actor.get_opacity():
+        actor.get_parent().remove_child(actor)
 
 
 # vim:set sw=4 ts=4 et:

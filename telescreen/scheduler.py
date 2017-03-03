@@ -8,8 +8,6 @@ from twisted.python import log
 from telescreen.common import Logging
 from telescreen.screen import VideoItem, ImageItem
 
-import gc
-
 
 __all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler']
 
@@ -94,7 +92,7 @@ class Scheduler (Logging):
 
             # Stop and get rid of all currently instantiated tasks.
             for task in list(self.tasks):
-                self.tasks.discard(task)
+                self.discard_task(task)
                 self.stop_task(task)
 
             # Cancel all pending events.
@@ -160,38 +158,24 @@ class ItemScheduler (Scheduler):
 
         # Create the item using the correct class and register it.
         ItemType = ITEM_TYPES[task['type']]
-        item = ItemType(self, task['url'])
+        item = ItemType(task['url'])
         self.add_task(item)
 
         # Put the item actor on the screen and start buffering.
-        self.screen.stage.add_child(item.actor)
-        item.pause()
+        item.prepare(self.screen)
 
-        self.msg('Schedule {0!r}...'.format(item))
-        self.add_event(task['start'], item.play)
-        self.add_event(task['end'], item.stop)
+        self.msg('Schedule {!r}...'.format(item))
+        self.add_event(task['start'], self.start_task, item)
+        self.add_event(task['end'], self.stop_task, item)
 
     def stop_task(self, item):
-        self.msg('Stop {}...'.format(item))
+        self.msg('Stop {!r}...'.format(item))
+        self.discard_task(item)
         item.stop()
 
-    def on_item_playing(self, item):
-        item.appear()
-
-    def on_item_paused(self, item):
-        pass
-
-    def on_item_stopped(self, item):
-        pass
-
-    def on_item_appeared(self, item):
-        # Perform full garbage collection cycle while the item is playing
-        # on the foreground. Everything should continue to run smoothly.
-        gc.collect()
-
-    def on_item_disappeared(self, item):
-        self.screen.stage.remove_child(item.actor)
-        self.discard_task(item)
+    def start_task(self, item):
+        log.msg('Start {!r}'.format(item))
+        item.start()
 
 
 class LayoutScheduler (Scheduler):
