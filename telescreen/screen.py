@@ -185,10 +185,10 @@ class Item(object):
         self.actor.set_opacity(0)
         self.actor.set_content(content)
 
-        bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
-        bus.enable_sync_message_emission()
-        bus.connect('message', self.on_message)
+        self.bus = self.pipeline.get_bus()
+        self.bus.add_signal_watch()
+        self.bus.enable_sync_message_emission()
+        self.bus.connect('message', self.on_message)
 
         self.actor.connect('transition-stopped',
                            self.on_actor_transition_stopped)
@@ -211,6 +211,7 @@ class Item(object):
         """
 
         self.pipeline.set_state(State.NULL)
+        self.bus.remove_signal_watch()
         self.disappear()
 
     def appear(self):
@@ -239,8 +240,9 @@ class Item(object):
         """
 
         if MessageType.EOS == msg.type:
-            self.scheduler.on_item_stopped(self)
-            return self.stop()
+            self.state = 'finished'
+            self.stop()
+            return self.scheduler.on_item_stopped(self)
 
         fit_actor_to_parent(self.actor)
 
@@ -255,13 +257,15 @@ class Item(object):
                 self.state = 'paused'
                 return self.scheduler.on_item_paused(self)
 
-            if new == new.NULL and self.state != 'stopped':
+            if new == new.NULL and self.state != 'finished':
                 self.state = 'stopped'
                 return self.scheduler.on_item_stopped(self)
 
         elif MessageType.ERROR == msg.type:
             log.msg('GStreamer: {} {}'.format(*msg.parse_error()))
+            self.state = 'finished'
             self.stop()
+            return self.scheduler.on_item_stopped(self)
 
     def on_actor_transition_stopped(self, actor, name, finished):
         """

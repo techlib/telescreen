@@ -8,6 +8,8 @@ from twisted.python import log
 from telescreen.common import Logging
 from telescreen.screen import VideoItem, ImageItem
 
+import gc
+
 
 __all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler']
 
@@ -183,7 +185,9 @@ class ItemScheduler (Scheduler):
         pass
 
     def on_item_appeared(self, item):
-        pass
+        # Perform full garbage collection cycle while the item is playing
+        # on the foreground. Everything should continue to run smoothly.
+        gc.collect()
 
     def on_item_disappeared(self, item):
         self.screen.stage.remove_child(item.actor)
