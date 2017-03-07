@@ -183,20 +183,23 @@ class Item:
 
         self.stage = Gtk.DrawingArea()
         self.stage.set_double_buffered(True)
-        self.stage.set_halign(Gtk.Align.CENTER)
-        self.stage.set_valign(Gtk.Align.CENTER)
 
-        # Use zero-sized window to draw the initial frame of the video.
-        # We need to preroll the video and zero opacity does not affect
-        # video overlays. We resize it later on.
+        #
+        # TODO: Find a better way to hide stage before the playback starts.
+        #
+        # Put the stage as a 1x1 pixel in the top-left corner of the screen
+        # put it behind any active content that will cover it. The only
+        # moment when it will not will be 5s before playback starts anew.
+        #
         self.stage.set_size_request(0, 0)
+        self.stage.set_halign(Gtk.Align.START)
+        self.stage.set_valign(Gtk.Align.START)
 
         self.stage.connect('realize', self.on_realize)
         self.stage.show()
 
-        #self.stage.set_opacity(0)
         screen.bin.add_overlay(self.stage)
-        #self.stage.connect('transition-stopped', remove_actor_after_fade_out)
+        screen.bin.reorder_overlay(self.stage, 0)
 
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
@@ -227,10 +230,11 @@ class Item:
 
         self.pipeline.set_state(State.PLAYING)
 
-        # Pipeline has been rendering to a zero-sized stage.
+        # Bring the stage forward and allow it to expand.
         self.stage.set_size_request(-1, -1)
         self.stage.set_halign(Gtk.Align.FILL)
         self.stage.set_valign(Gtk.Align.FILL)
+        self.stage.get_parent().reorder_overlay(self.stage, 1)
 
     def stop(self):
         """
