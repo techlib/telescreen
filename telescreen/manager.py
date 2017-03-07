@@ -10,6 +10,7 @@ from functools import *
 from datetime import datetime
 from jsonschema import validate, ValidationError
 from uuid import uuid4
+from os import uname
 
 from telescreen.schema import schema
 from telescreen.scheduler import ItemScheduler, LayoutScheduler
@@ -38,6 +39,9 @@ class Manager(object):
 
         # Identifier of the last plan from the leader.
         self.plan = '0' * 32
+
+        # More human readable identifier
+        self.hostname = uname().nodename
 
     def start(self):
         """
@@ -70,6 +74,7 @@ class Manager(object):
                 'plan': self.plan,
                 'layout': self.screen.layout,
                 'power': self.cec.status,
+                'hostname': self.hostname
             },
         })
 
