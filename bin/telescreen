@@ -2,17 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Use GObject-Introspection for the Gtk infrastructure bindings.
-# We are going to use Clutter and ClutterGst that are normally not exposed.
 import gi
 
 # Specify versions of the components we are going to use.
 gi.require_version('GdkPixbuf', '2.0')
-gi.require_version('GtkClutter', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-gi.require_version('Clutter', '1.0')
-gi.require_version('ClutterGst', '3.0')
 gi.require_version('Gst', '1.0')
+gi.require_version('GstVideo', '1.0')
 gi.require_version('GObject', '2.0')
 gi.require_version('WebKit2', '4.0')
 
@@ -35,18 +32,6 @@ Gdk.init([])
 
 from gi.repository import Gst
 Gst.init([])
-
-from gi.repository import Clutter
-from gi.repository import GtkClutter
-r, _ = GtkClutter.init([])
-assert r == Clutter.InitError.SUCCESS
-
-r, _ = Clutter.init([])
-assert r == Clutter.InitError.SUCCESS
-
-from gi.repository import ClutterGst
-r, _ = ClutterGst.init([])
-assert r == Clutter.InitError.SUCCESS
 
 from gi.repository.Gtk import Application
 

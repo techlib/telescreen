@@ -1,18 +1,14 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-# Import individual gi objects we need.
-from gi.repository.Clutter import Actor, Stage, BinLayout, BinAlignment, \
-                                  Image, ContentGravity, Color, StaticColor
-from gi.repository.ClutterGst import Content
 from gi.repository.Gst import parse_launch, Pipeline, ElementFactory, State, \
                               MessageType, GhostPad, PadDirection
-from gi.repository.GdkPixbuf import Pixbuf
-from gi.repository.Cogl import PixelFormat
 
-# Import Gtk infrastructure libraries that need initialization.
-from gi.repository.GtkClutter import Embed
-from gi.repository.Gtk import Fixed, ApplicationWindow, main_quit
+from gi.repository import Gst
+from gi.repository import GstVideo
+from gi.repository import Gdk
+from gi.repository import Gtk
+
 from gi.repository.WebKit2 import WebView
 
 from twisted.internet import reactor
@@ -27,33 +23,39 @@ import gc
 __all__ = ['Screen', 'VideoItem', 'ImageItem']
 
 
-class Screen(ApplicationWindow):
+class Screen:
     """
     Window of the content player.
     """
 
     def __init__(self):
-        super().__init__(title='Telescreen')
-        self.fixed = Fixed.new()
-        self.player = Embed.new()
+        self.window = Gtk.ApplicationWindow(title='Telescreen')
+
+        black = Gdk.RGBA()
+        black.parse('#000000')
+        self.window.override_background_color(Gtk.StateFlags.NORMAL, black)
+
+        self.background = None
+
+        self.fixed = Gtk.Fixed.new()
+        self.window.add(self.fixed)
+
+        self.bin = Gtk.Overlay()
+        self.fixed.add(self.bin)
+
+        image = Gtk.Image.new_from_file(dirname(__file__) + '/logo.png')
+        image.set_halign(Gtk.Align.CENTER)
+        image.set_valign(Gtk.Align.CENTER)
+        self.bin.add(image)
 
         self.sidebar = WebView()
-        self.panel = WebView()
-
-        self.stage = self.player.get_stage()
-        self.stage.set_size(1920, 1080)
-
-        self.stage.set_background_color(Color.get_static(StaticColor.BLACK))
-        self.set_logo(dirname(__file__) + '/logo.png')
-
-        self.fixed.add(self.player)
         self.fixed.add(self.sidebar)
+
+        self.panel = WebView()
         self.fixed.add(self.panel)
 
-        self.add(self.fixed)
-
-        self.connect('delete-event', self.on_delete)
-        self.connect('check-resize', self.on_resize)
+        self.window.connect('delete-event', self.on_delete)
+        self.window.connect('check-resize', self.on_resize)
 
         self.layout = {
             'mode': 'full',
@@ -61,15 +63,17 @@ class Screen(ApplicationWindow):
             'panel': None,
         }
 
+        self.xid = None
+
     def start(self):
         """
         Show the application window and start any periodic processes.
         """
 
         log.msg('Showing the player window...')
-        self.fullscreen()
-        self.show_all()
-        self.on_resize(self)
+        self.window.fullscreen()
+        self.window.show_all()
+        self.on_resize(self.window)
 
         log.msg('Screen started.')
 
@@ -82,14 +86,12 @@ class Screen(ApplicationWindow):
         """
 
         width, height = widget.get_size()
-        if width <= 0 or width < height or height <= 0:
+        if width < 0 or height < 0:
             return
 
         if self.layout['mode'] == 'full':
-            self.player.show()
-            self.fixed.move(self.player, 0, 0)
-            self.player.set_size_request(width, height)
-            self.stage.set_size(width, height)
+            self.fixed.move(self.bin, 0, 0)
+            self.bin.set_size_request(width, height)
 
             self.sidebar.hide()
             self.panel.hide()
@@ -97,10 +99,8 @@ class Screen(ApplicationWindow):
         elif self.layout['mode'] == 'sidebar':
             size = height / 3 * 4
 
-            self.player.show()
-            self.stage.set_size(size, height)
-            self.fixed.move(self.player, 0, 0)
-            self.player.set_size_request(size, height)
+            self.fixed.move(self.bin, 0, 0)
+            self.bin.set_size_request(size, height)
 
             self.sidebar.show()
             self.fixed.move(self.sidebar, size, 0)
@@ -112,10 +112,8 @@ class Screen(ApplicationWindow):
             panel = height / 12
             size = (height - panel) * 4 / 3
 
-            self.player.show()
-            self.fixed.move(self.player, 0, 0)
-            self.player.set_size_request(size, height - panel)
-            self.stage.set_size(size, height - panel)
+            self.fixed.move(self.bin, 0, 0)
+            self.bin.set_size_request(size, height - panel)
 
             self.sidebar.show()
             self.fixed.move(self.sidebar, size, 0)
@@ -135,17 +133,9 @@ class Screen(ApplicationWindow):
 
         log.msg('Window closed, stopping reactor...')
         reactor.stop()
-        main_quit()
+        Gtk.main_quit()
 
         log.msg('Bye.')
-
-    def set_logo(self, path):
-        """
-        Set the background logo on the stage.
-        """
-
-        self.stage.set_content(clutter_image_from_file(path))
-        self.stage.set_content_gravity(ContentGravity.CENTER)
 
     def set_layout(self, layout):
         """
@@ -171,7 +161,7 @@ class Screen(ApplicationWindow):
 
 class Item:
     """
-    Playlist item with its associated Actor and GStreamer pipeline.
+    Playlist item with its associated DrawingArea and GStreamer pipeline.
     """
 
     def __init__(self, url):
@@ -179,7 +169,7 @@ class Item:
 
         self.pipeline = None
         self.sink = None
-        self.actor = None
+        self.stage = None
         self.bus = None
 
     def prepare(self, screen):
@@ -187,19 +177,31 @@ class Item:
 
         self.pipeline, self.sink = self.make_pipeline(self.url)
 
-        content = Content.new_with_sink(self.sink)
+        self.stage = Gtk.DrawingArea()
+        self.stage.set_double_buffered(True)
+        self.stage.set_halign(Gtk.Align.CENTER)
+        self.stage.set_valign(Gtk.Align.CENTER)
 
-        self.actor = Actor.new()
-        self.actor.set_opacity(0)
-        self.actor.set_content(content)
-        screen.stage.add_child(self.actor)
-        self.actor.connect('transition-stopped', remove_actor_after_fade_out)
+        # Use zero-sized window to draw the initial frame of the video.
+        # We need to preroll the video and zero opacity does not affect
+        # video overlays. We resize it later on.
+        self.stage.set_size_request(0, 0)
+
+        self.stage.connect('realize', self.on_realize)
+        self.stage.show()
+
+        #self.stage.set_opacity(0)
+        screen.bin.add_overlay(self.stage)
+        #self.stage.connect('transition-stopped', remove_actor_after_fade_out)
 
         self.bus = self.pipeline.get_bus()
         self.bus.add_signal_watch()
         self.bus.enable_sync_message_emission()
         self.bus.connect('message', self.on_message)
 
+    def on_realize(self, stage):
+        self.xid = self.stage.get_window().get_xid()
+        self.sink.set_window_handle(self.xid)
         self.pipeline.set_state(State.PAUSED)
 
     def make_pipeline(self, url):
@@ -211,18 +213,20 @@ class Item:
         Start playing the item and make the actor appear.
         """
 
-        assert self.pipeline is not None, 'Cannot start unprepared Item'
+        if self.pipeline is None:
+            log.msg('Cannot start unprepared Item, bailing out.')
+            return
+
+        if self.xid is None:
+            log.msg('Cannot start without a realized stage, bailing out.')
+            return
 
         self.pipeline.set_state(State.PLAYING)
 
-        self.actor.save_easing_state()
-        self.actor.set_easing_duration(240)
-        self.actor.set_opacity(255)
-        self.actor.restore_easing_state()
-
-        # Collect the garbage to prevent excessive memory use due to
-        # large memory structures of the foreign Gst objects.
-        gc.collect()
+        # Pipeline has been rendering to a zero-sized stage.
+        self.stage.set_size_request(-1, -1)
+        self.stage.set_halign(Gtk.Align.FILL)
+        self.stage.set_valign(Gtk.Align.FILL)
 
     def stop(self):
         """
@@ -234,16 +238,12 @@ class Item:
 
         self.pipeline.set_state(State.NULL)
         self.bus.remove_signal_watch()
-
-        self.actor.save_easing_state()
-        self.actor.set_easing_duration(240)
-        self.actor.set_opacity(0)
-        self.actor.restore_easing_state()
+        self.stage.get_parent().remove(self.stage)
 
         self.pipeline = None
         self.sink = None
         self.bus = None
-        self.actor = None
+        self.stage = None
 
     def on_message(self, bus, msg):
         """
@@ -255,9 +255,6 @@ class Item:
 
         elif MessageType.STATE_CHANGED == msg.type:
             old, new, pending = msg.parse_state_changed()
-
-            if old != new:
-                fit_actor_to_parent(self.actor)
 
         elif MessageType.ERROR == msg.type:
             log.msg('GStreamer: {} {}'.format(*msg.parse_error()))
@@ -283,19 +280,19 @@ class ImageItem(Item):
             ! video/x-raw, height=[1,2048], pixel-aspect-ratio=1/1
             ! videoscale add-borders=true
             ! video/x-raw, width=[1,2048], pixel-aspect-ratio=1/1
-            ! cluttersink name=sink
+            ! xvimagesink name=sink
         ''')
         realpad = videosink.find_unlinked_pad(PadDirection.SINK)
         ghostpad = GhostPad.new(None, realpad)
         videosink.add_pad(ghostpad)
 
-        cluttersink = videosink.get_by_name('sink')
+        realsink = videosink.get_by_name('sink')
 
         source.set_property('uri', quote(url, '/:'))
         source.set_property('buffer-size', 2**22)
         source.set_property('video-sink', videosink)
 
-        return pipeline, cluttersink
+        return pipeline, realsink
 
 
 class VideoItem(Item):
@@ -308,7 +305,7 @@ class VideoItem(Item):
         source = ElementFactory.make('playbin')
         pipeline.add(source)
 
-        videosink = ElementFactory.make('cluttersink')
+        videosink = ElementFactory.make('xvimagesink')
 
         source.set_property('uri', quote(url, '/:'))
         source.set_property('buffer-size', 2**22)
@@ -317,13 +314,10 @@ class VideoItem(Item):
         return pipeline, videosink
 
 
-def clutter_image_from_file(path):
+def image_from_file(path):
     """
-    Create clutter Image from a file on disk using GdkPixbuf.
+    Create Image from a file on disk.
     """
-
-    pixbuf = Pixbuf.new_from_file(path)
-    image = Image.new()
 
     if pixbuf.get_has_alpha():
         pixel_format = PixelFormat.RGBA_8888
@@ -337,49 +331,6 @@ def clutter_image_from_file(path):
                           pixbuf.get_rowstride())
 
     return image
-
-
-def fit_actor_to_parent(actor):
-    """
-    Adjust Actor position and size to best fit its parent.
-    """
-
-    content = actor.get_content()
-    if content is None:
-        return
-
-    applies, width, height = content.get_preferred_size()
-    if not applies:
-        return
-
-    parent = actor.get_parent()
-    if parent is None:
-        return
-
-    parent_width = parent.get_width()
-    parent_height = parent.get_height()
-
-    width_ratio = float(parent_width) / float(width)
-    height_ratio = float(parent_height) / float(height)
-    ratio = min(width_ratio, height_ratio)
-
-    width = int(width * ratio)
-    height = int(height * ratio)
-
-    actor.set_width(width)
-    actor.set_height(height)
-
-    actor.set_x((parent_width - width) / 2)
-    actor.set_y((parent_height - height) / 2)
-
-
-def remove_actor_after_fade_out(actor, name, finished):
-    """
-    Remove actor from its parent after it fades out.
-    """
-
-    if 'opacity' == name and 0 == actor.get_opacity():
-        actor.get_parent().remove_child(actor)
 
 
 # vim:set sw=4 ts=4 et:
