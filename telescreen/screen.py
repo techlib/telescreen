@@ -54,6 +54,7 @@ class Screen:
 
         self.window.connect('delete-event', self.on_delete)
         self.window.connect('check-resize', self.on_resize)
+        self.window.connect('realize', self.on_realize)
 
         self.layout = {
             'mode': 'full',
@@ -74,6 +75,10 @@ class Screen:
         self.on_resize(self.window)
 
         log.msg('Screen started.')
+
+    def on_realize(self, window):
+        cursor = Gdk.Cursor.new(Gdk.CursorType.BLANK_CURSOR)
+        window.get_window().set_cursor(cursor)
 
     def on_resize(self, widget):
         """
