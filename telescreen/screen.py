@@ -17,8 +17,6 @@ from twisted.python import log
 from urllib.parse import quote
 from os.path import dirname
 
-import gc
-
 
 __all__ = ['Screen', 'VideoItem', 'ImageItem']
 
@@ -86,6 +84,7 @@ class Screen:
         """
 
         width, height = widget.get_size()
+
         if width < 0 or height < 0:
             return
 
@@ -153,7 +152,7 @@ class Screen:
 
         if self.layout != layout:
             self.layout = layout
-            self.on_resize(self)
+            self.on_resize(self.window)
 
             self.sidebar.load_uri(layout.get('sidebar') or 'about:blank')
             self.panel.load_uri(layout.get('panel') or 'about:blank')
