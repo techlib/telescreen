@@ -123,4 +123,13 @@ class Manager(object):
         reactor.callLater(0, self.item_scheduler.change_plan, items)
         reactor.callLater(0, self.layout_scheduler.change_plan, layouts)
 
+    def on_close(self):
+        """
+        Do what needs to be done before shutdown
+        """
+
+        log.msg('Closing Indoktrinator...')
+        log.msg('Shutting down CEC...')
+        self.cec.close()
+
 # vim:set sw=4 ts=4 et:
