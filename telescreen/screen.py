@@ -283,11 +283,7 @@ class ImageItem(Item):
 
         videosink = parse_launch('''
             imagefreeze
-            ! video/x-raw, pixel-aspect-ratio=1/1, rate=1/3600
             ! videoscale add-borders=true
-            ! video/x-raw, height=[1,2048], pixel-aspect-ratio=1/1
-            ! videoscale add-borders=true
-            ! video/x-raw, width=[1,2048], pixel-aspect-ratio=1/1
             ! xvimagesink name=sink
         ''')
         realpad = videosink.find_unlinked_pad(PadDirection.SINK)
