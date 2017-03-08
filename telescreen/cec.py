@@ -14,6 +14,14 @@ from twisted.internet.protocol import ProcessProtocol
 __all__ = ['CEC']
 
 
+CEC_POWER_STATUSES = {
+        'on': 'on',
+        'standby': 'standby',
+        'in transition from standby to on': 'to-on',
+        'in transition from on to standby': 'to-standby',
+        'unknown': 'unknown'
+        }
+
 class CECProtocol(ProcessProtocol):
     def __init__(self, command, callback=log.msg):
         self.command = command
@@ -52,7 +60,7 @@ class CEC(object):
     def _parse_power_status(self, data):
         try:
             m = re.match('power status: (.*)', data.decode('utf-8'))
-            self.status = m.group(1)
+            self.status = CEC_POWER_STATUSES[m.group(1)]
         except AttributeError:
             pass
 
