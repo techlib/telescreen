@@ -36,7 +36,8 @@ Gst.init([])
 from gi.repository.Gtk import Application
 
 # Import all application handles.
-from telescreen import Manager, Screen
+from telescreen.manager import Manager
+from telescreen.screen import Screen
 from telescreen.tzmq import Router
 from telescreen.cec import CEC
 
@@ -67,9 +68,6 @@ def do_start(connect_to, identity):
 
     # Prepare the CEC adapter.
     cec = CEC()
-
-    # Set the correct thread pool size for the manager.
-    reactor.suggestThreadPoolSize(2)
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
