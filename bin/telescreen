@@ -36,6 +36,7 @@ Gst.init([])
 from gi.repository.Gtk import Application
 
 # Import all application handles.
+from telescreen.decoder.server import Decoder
 from telescreen.manager import Manager
 from telescreen.screen import Screen
 from telescreen.tzmq import Router
@@ -43,15 +44,17 @@ from telescreen.cec import CEC
 
 # Get rest of the Twisted.
 from twisted.python import log
+from twisted.internet.stdio import StandardIO
 
 # Command line arguments follow the GNU conventions.
 from getopt import gnu_getopt
 from sys import argv, stderr, exit
 
 
-def do_start(connect_to, identity):
-    # Start Twisted logging to console.
-    log.startLogging(stderr)
+def do_screen(*args, connect_to, identity, quiet):
+    if not quiet:
+        # Start Twisted logging to console.
+        log.startLogging(stderr)
 
     # Obtain the unique identity identifier.
     if identity is None:
@@ -85,6 +88,29 @@ def do_start(connect_to, identity):
     # Run Gtk / Twisted reactor until the user terminates us.
     reactor.run()
 
+def do_decode(*args, quiet, **kwargs):
+    if not quiet:
+        # Start Twisted logging to console.
+        log.startLogging(stderr)
+
+    assert len(args) == 3, 'Expected parameters: xid, media, url'
+
+    # Parse decoding arguments.
+    xid, media, url = args
+    xid = int(xid)
+
+    assert media in ('image', 'video'), 'Expected media: image, video'
+
+    # Prepare the decoder.
+    decoder = Decoder(xid, media, url)
+
+    # Allow decoder communicate with parent over stdio.
+    StandardIO(decoder)
+
+    # Run Gtk / Twisted reactor until the user terminates us or
+    # decoder decides to stop.
+    reactor.run()
+
 
 def do_help(*args, **kwargs):
     print('Usage: telescreen [--connect=tcp://127.0.0.1:5001]')
@@ -97,11 +123,12 @@ def do_help(*args, **kwargs):
     print('  --connect, -c url      Connect to specified 0MQ endpoint.')
     print('  --id, -d identity      Set client 0MQ identity.')
     print('  --check-interval, -i   Set check interval, default 300.')
+    print('  --quiet, -q            Disable stderr logging')
     print('')
-    print('The 0MQ endpoint must belong to an instance of the "party-daemon"')
-    print('application responding to messages addressed to the "leader".')
+    print('The 0MQ endpoint must belong to an Indoktrinator instance')
+    print('responding to messages addressed to the "leader".')
     print('')
-    print('Report bugs at <http://github.com/techlib/telescreen>.')
+    print('Report bugs at <http://github.com/techlib/telescreen/>.')
 
 
 def do_version(*args, **kwargs):
@@ -110,11 +137,15 @@ def do_version(*args, **kwargs):
 
 def main():
     # Parse command line arguments.
-    opts, args = gnu_getopt(argv, 'hVi:d:c:', ['help', 'version', 'id=', 'connect='])
+    longopts = ['help', 'version', 'id=', 'connect=', 'decode', 'quiet']
+    opts, args = gnu_getopt(argv, 'hVi:d:c:q', longopts)
 
-    action = do_start
-    connect_to = 'tcp://127.0.0.1:5001'
-    identity = None
+    action = do_screen
+    kwargs = {
+        'connect_to': None,
+        'identity': None,
+        'quiet': False,
+    }
 
     for k, v in opts:
         if k in ('--help', '-h'):
@@ -122,12 +153,19 @@ def main():
         elif k in ('--version', '-V'):
             action = do_version
         elif k in ('--connect', '-c'):
-            connect_to = v
+            kwargs['connect_to'] = v
         elif k in ('--id', '-d'):
-            identity = v
+            kwargs['identity'] = v
+        elif k in ('--decode',):
+            action = do_decode
+        elif k in ('--quiet', '-q'):
+            kwargs['quiet'] = True
+
+    if action != do_decode and kwargs['connect_to'] is None:
+        kwargs['connect_to'] = 'tcp://127.0.0.1:5001'
 
     # Perform the selected action.
-    action(connect_to, identity)
+    action(*args[1:], **kwargs)
 
 
 if __name__ == '__main__':

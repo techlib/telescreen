@@ -1,21 +1,17 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
-from gi.repository.Gst import parse_launch, Pipeline, ElementFactory, State, \
-                              MessageType, GhostPad, PadDirection
-
-from gi.repository import Gst
-from gi.repository import GstVideo
 from gi.repository import Gdk
 from gi.repository import Gtk
-
-from gi.repository.WebKit2 import WebView
+from gi.repository import WebKit2
 
 from twisted.internet import reactor
 from twisted.python import log
 
 from urllib.parse import quote
 from os.path import dirname
+
+from telescreen.decoder.client import DecoderClient
 
 
 __all__ = ['Screen', 'VideoItem', 'ImageItem']
@@ -46,10 +42,10 @@ class Screen:
         image.set_valign(Gtk.Align.CENTER)
         self.bin.add(image)
 
-        self.sidebar = WebView()
+        self.sidebar = WebKit2.WebView()
         self.fixed.add(self.sidebar)
 
-        self.panel = WebView()
+        self.panel = WebKit2.WebView()
         self.fixed.add(self.panel)
 
         self.window.connect('delete-event', self.on_delete)
@@ -165,27 +161,29 @@ class Screen:
 
 class Item:
     """
-    Playlist item with its associated DrawingArea and GStreamer pipeline.
+    Playlist item with its associated DrawingArea and a decoder.
     """
 
     def __init__(self, url):
         self.url = url
-
-        self.pipeline = None
-        self.sink = None
         self.stage = None
-        self.bus = None
+        self.decoder = None
 
     def prepare(self, screen):
-        assert self.pipeline is None, 'Cannot prepare Item twice'
+        """
+        Prepare the Item for playback by DrawingArea construction.
+        """
 
-        self.pipeline, self.sink = self.make_pipeline(self.url)
+        if self.stage is not None:
+            log.msg('Cannot prepare Item twice, ignoring.')
+            return
 
         self.stage = Gtk.DrawingArea()
-        self.stage.set_double_buffered(True)
+        self.stage.set_double_buffered(False)
 
         #
-        # TODO: Find a better way to hide stage before the playback starts.
+        # FIXME: Find a better way to hide stage before the playback starts.
+        #        Ideally hide it with another widget.
         #
         # Put the stage as a 1x1 pixel in the top-left corner of the screen
         # put it behind any active content that will cover it. The only
@@ -201,15 +199,18 @@ class Item:
         screen.bin.add_overlay(self.stage)
         screen.bin.reorder_overlay(self.stage, 0)
 
-        self.bus = self.pipeline.get_bus()
-        self.bus.add_signal_watch()
-        self.bus.enable_sync_message_emission()
-        self.bus.connect('message', self.on_message)
-
     def on_realize(self, stage):
+        """
+        Called when the DrawingArea (stage) gets realized.
+
+        With its XID known, launches a Decoder process (controlled using
+        a DecoderClient instance) and immediately instruct it to preroll
+        the pipeline.
+        """
+
         self.xid = self.stage.get_window().get_xid()
-        self.sink.set_window_handle(self.xid)
-        self.pipeline.set_state(State.PAUSED)
+        self.decoder = DecoderClient(self.xid, self.MEDIA, self.url)
+        self.decoder.prepare()
 
     def make_pipeline(self, url):
         """Create GStreamer pipeline for playback of this item."""
@@ -220,15 +221,12 @@ class Item:
         Start playing the item and make the actor appear.
         """
 
-        if self.pipeline is None:
-            log.msg('Cannot start unprepared Item, bailing out.')
+        if self.decoder is None:
+            log.msg('Cannot start without a Decoder, ignoring.')
             return
 
-        if self.xid is None:
-            log.msg('Cannot start without a realized stage, bailing out.')
-            return
-
-        self.pipeline.set_state(State.PLAYING)
+        # Start playback.
+        self.decoder.play()
 
         # Bring the stage forward and allow it to expand.
         self.stage.set_size_request(-1, -1)
@@ -241,32 +239,15 @@ class Item:
         Stop pipeline and make the actor disappear.
         """
 
-        if self.pipeline is None:
+        if self.decoder is None:
             return
 
-        self.pipeline.set_state(State.NULL)
-        self.bus.remove_signal_watch()
+        self.decoder.stop()
+
         self.stage.get_parent().remove(self.stage)
 
-        self.pipeline = None
-        self.sink = None
-        self.bus = None
+        self.decoder = None
         self.stage = None
-
-    def on_message(self, bus, msg):
-        """
-        Handle message from GStreamer message bus.
-        """
-
-        if MessageType.EOS == msg.type:
-            self.stop()
-
-        elif MessageType.STATE_CHANGED == msg.type:
-            old, new, pending = msg.parse_state_changed()
-
-        elif MessageType.ERROR == msg.type:
-            log.msg('GStreamer: {} {}'.format(*msg.parse_error()))
-            self.stop()
 
     def __repr__(self):
         return '{}(url={!r})'.format(type(self).__name__, self.url)
@@ -274,48 +255,12 @@ class Item:
 
 class ImageItem(Item):
     """Still image playlist item."""
-
-    def make_pipeline(self, url):
-        pipeline = Pipeline()
-
-        source = ElementFactory.make('playbin3')
-        pipeline.add(source)
-
-        videosink = parse_launch('''
-            imagefreeze
-            ! videoscale add-borders=true
-            ! xvimagesink name=sink
-        ''')
-        realpad = videosink.find_unlinked_pad(PadDirection.SINK)
-        ghostpad = GhostPad.new(None, realpad)
-        videosink.add_pad(ghostpad)
-
-        realsink = videosink.get_by_name('sink')
-
-        source.set_property('uri', quote(url, '/:'))
-        source.set_property('buffer-size', 2**22)
-        source.set_property('video-sink', videosink)
-
-        return pipeline, realsink
+    MEDIA = 'image'
 
 
 class VideoItem(Item):
     """Video playlist item."""
-
-    def make_pipeline(self, url):
-        pipeline = Pipeline()
-
-        # FIXME: We should use playbin3, but it seemed to fail sometimes.
-        source = ElementFactory.make('playbin')
-        pipeline.add(source)
-
-        videosink = ElementFactory.make('xvimagesink')
-
-        source.set_property('uri', quote(url, '/:'))
-        source.set_property('buffer-size', 2**22)
-        source.set_property('video-sink', videosink)
-
-        return pipeline, videosink
+    MEDIA = 'video'
 
 
 def image_from_file(path):
