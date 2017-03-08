@@ -81,9 +81,6 @@ def do_start(connect_to, identity):
     # Schedule a call to the manager right after we finish here.
     reactor.callLater(0, manager.start)
 
-    # Gracefully shutdown
-    reactor.addSystemEventTrigger('before', 'shutdown', manager.on_close)
-
     # Also draw the initial, blank screen as soon as possible.
     reactor.callLater(0, screen.start)
 
