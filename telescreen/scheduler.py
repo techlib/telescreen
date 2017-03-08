@@ -213,6 +213,7 @@ def plan_window(plan, ending_after, starting_before):
 
     return window_tasks
 
+
 def pop_queue_tasks(queue, secs=60, now=None):
     """
     Remove upcoming items from the queue.
