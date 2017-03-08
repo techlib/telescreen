@@ -15,12 +15,13 @@ __all__ = ['CEC']
 
 
 CEC_POWER_STATUSES = {
-        'on': 'on',
-        'standby': 'standby',
-        'in transition from standby to on': 'to-on',
-        'in transition from on to standby': 'to-standby',
-        'unknown': 'unknown'
-        }
+    'on': 'on',
+    'standby': 'standby',
+    'in transition from standby to on': 'to-on',
+    'in transition from on to standby': 'to-standby',
+    'unknown': 'unknown',
+}
+
 
 class CECProtocol(ProcessProtocol):
     def __init__(self, command, callback=log.msg):
