@@ -24,13 +24,20 @@ CEC_POWER_STATUSES = {
 
 
 class CECProtocol(ProcessProtocol):
-    def __init__(self, command, callback=log.msg):
-        self.command = command
+    def __init__(self, callback=log.msg):
         self.callback = callback
 
     def connectionMade(self):
-        self.transport.write(self.command.encode('utf-8'))
-        self.transport.closeStdin()
+        pass
+
+    def set_active_source(self):
+        self.transport.write('as 0\n'.encode('utf-8'))
+
+    def set_power_status(self, status):
+        self.transport.write('{} 0\n'.format(status).encode('utf-8'))
+
+    def query_power_status(self):
+        self.transport.write('pow 0\n'.encode('utf-8'))
 
     def outReceived(self, data):
         self.callback(data)
@@ -43,31 +50,27 @@ class CEC(object):
 
     def __init__(self):
         self.status = 'unknown'
+        self.protocol = CECProtocol(callback=self._parse_power_status)
 
     def start(self):
+        reactor.spawnProcess(self.protocol, which('cec-client')[0], 
+                             args=('cec-client', '-d', '1'))
         self.status_loop = LoopingCall(self.query_power_status)
         self.status_loop.start(15)
 
     def set_active_source(self):
-        protocol = CECProtocol('as 0', self._parse_power_status)
-        args = ['cec-client', '-s', '-d', '1', '-t', 't', '-o', 'Telescreen']
-        reactor.spawnProcess(protocol, which('cec-client')[0],
-                             args=args)
+        self.protocol.set_active_source()
 
     def set_power_status(self, status):
-        protocol = CECProtocol('{} 0'.format(status))
-        reactor.spawnProcess(protocol, which('cec-client')[0],
-                             args=['cec-client', '-s', '-d', '1'])
+        self.protocol.set_power_status(status)
 
     def query_power_status(self):
-        protocol = CECProtocol('pow 0', self._parse_power_status)
-        reactor.spawnProcess(protocol, which('cec-client')[0],
-                             args=['cec-client', '-s', '-d', '1'])
+        self.protocol.query_power_status()
 
     def _parse_power_status(self, data):
         try:
-            m = re.match('power status: (.*)', data.decode('utf-8'))
-            self.status = CEC_POWER_STATUSES[m.group(1)]
+            m = re.match('power status: (.*)', data.strip().decode('utf-8'))
+            self.status = CEC_POWER_STATUSES[m.group(1).strip()]
         except AttributeError:
             pass
 
