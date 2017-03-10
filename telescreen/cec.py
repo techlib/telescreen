@@ -49,7 +49,7 @@ class CEC(object):
         self.status_loop.start(15)
 
     def set_active_source(self):
-        protocol = CECProtocol('ac 0', self._parse_power_status)
+        protocol = CECProtocol('as 0', self._parse_power_status)
         args = ['cec-client', '-s', '-d', '1', '-t', 't', '-o', 'Telescreen']
         reactor.spawnProcess(protocol, which('cec-client')[0],
                              args=args)
