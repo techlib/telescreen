@@ -13,7 +13,7 @@ from uuid import uuid4
 from os import uname
 
 from telescreen.schema import schema
-from telescreen.scheduler import ItemScheduler, LayoutScheduler
+from telescreen.scheduler import ItemScheduler, LayoutScheduler, PowerScheduler
 from telescreen.screen import VideoItem, ImageItem
 
 
@@ -37,6 +37,9 @@ class Manager(object):
         # Create layout change scheduler.
         self.layout_scheduler = LayoutScheduler(screen)
 
+        # Create power scheduled
+        self.power_scheduler = PowerScheduler(cec)
+
         # Identifier of the last plan from the leader.
         self.plan = '0' * 32
 
@@ -51,6 +54,7 @@ class Manager(object):
         # Schedulers have their own periodic tasks.
         self.item_scheduler.start()
         self.layout_scheduler.start()
+        self.power_scheduler.start()
 
         # CEC has its tasks as well.
         self.cec.start()
@@ -119,9 +123,11 @@ class Manager(object):
 
         items = plan['items']
         layouts = plan['layouts']
+        power = plan['power']
 
         reactor.callLater(0, self.item_scheduler.change_plan, items)
         reactor.callLater(0, self.layout_scheduler.change_plan, layouts)
+        reactor.callLater(0, self.power_scheduler.change_plan, power)
 
     def on_close(self):
         """

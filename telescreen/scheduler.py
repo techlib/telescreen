@@ -9,7 +9,7 @@ from telescreen.common import Logging
 from telescreen.screen import VideoItem, ImageItem
 
 
-__all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler']
+__all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler', 'PowerScheduler']
 
 
 ITEM_TYPES = {
@@ -199,6 +199,26 @@ class LayoutScheduler (Scheduler):
             'sidebar': task['sidebar'],
         })
 
+class PowerScheduler (Scheduler):
+    def __init__(self, cec):
+        super().__init__()
+
+        self.cec = cec
+
+    def log_prefix(self):
+        return 'power-sched'
+
+    def set_power_status(self, status):
+        if self.cec.status != status:
+            self.cec.set_power_status(status)
+
+    def schedule_task(self, task):
+        """
+        Schedule power change.
+        """
+
+        self.msg('Schedule power change to {} ...'.format(task['power']))
+        self.add_event(task['start'], self.set_power_status, task['power'])
 
 def plan_window(plan, ending_after, starting_before):
     """
