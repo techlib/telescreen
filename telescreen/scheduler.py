@@ -212,6 +212,9 @@ class PowerScheduler (Scheduler):
         if self.cec.status != status:
             self.cec.set_power_status(status)
 
+            if status == 'on':
+                self.cec.set_active_source()
+
     def schedule_task(self, task):
         """
         Schedule power change.
