@@ -39,6 +39,10 @@ definitions:
         type: array
         items: {$ref: '#/definitions/layout'}
 
+      power:
+        type: array
+        items: {$ref: '#/definitions/power'}
+
   item:
     type: object
     additionalProperties: false
@@ -72,5 +76,19 @@ definitions:
         oneOf:
           - enum: [null]
           - {$ref: '#/definitions/url'}
+
+  power:
+    type: object
+    additionalProperties: false
+    required: [start, end, power]
+    properties:
+      start:
+        type: number
+
+      end:
+        type: number
+
+      power:
+        enum: ['on', 'standby']
 
 # EOF
