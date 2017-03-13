@@ -8,14 +8,14 @@ __all__ = ['Logging']
 
 
 class Logging:
-    def log_prefix(self):
+    def logPrefix(self):
         return '-'
 
     def msg(self, text, **kw):
-        return log.msg(text, system=self.log_prefix(), **kw)
+        return log.msg(text, system=self.logPrefix(), **kw)
 
     def err(self, *args, **kw):
-        return log.err(*args, system=self.log_prefix(), **kw)
+        return log.err(*args, system=self.logPrefix(), **kw)
 
 
 # vim:set sw=4 ts=4 et:

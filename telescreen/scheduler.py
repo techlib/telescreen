@@ -36,7 +36,7 @@ class Scheduler (Logging):
         # Scheduled events such as play and stop.
         self.events = set()
 
-    def log_prefix(self):
+    def logPrefix(self):
         return 'scheduler'
 
     def start(self):
@@ -148,7 +148,7 @@ class ItemScheduler (Scheduler):
 
         self.screen = screen
 
-    def log_prefix(self):
+    def logPrefix(self):
         return 'item-sched'
 
     def schedule_task(self, task):
@@ -184,7 +184,7 @@ class LayoutScheduler (Scheduler):
 
         self.screen = screen
 
-    def log_prefix(self):
+    def logPrefix(self):
         return 'layout-sched'
 
     def schedule_task(self, task):
@@ -205,7 +205,7 @@ class PowerScheduler (Scheduler):
 
         self.cec = cec
 
-    def log_prefix(self):
+    def logPrefix(self):
         return 'power-sched'
 
     def set_power_status(self, status):

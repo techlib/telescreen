@@ -10,6 +10,8 @@ from twisted.internet import reactor
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
+from telescreen.common import Logging
+
 
 __all__ = ['CEC']
 
@@ -23,7 +25,7 @@ CEC_POWER_STATUSES = {
 }
 
 
-class CECProtocol(ProcessProtocol):
+class CECProtocol(ProcessProtocol, Logging):
     def __init__(self, callback=log.msg):
         self.callback = callback
 
@@ -31,16 +33,22 @@ class CECProtocol(ProcessProtocol):
         pass
 
     def set_active_source(self):
+        self.msg('Setting active source to 0...')
         self.transport.write('as 0\n'.encode('utf-8'))
 
     def set_power_status(self, status):
+        self.msg('Setting power status to {!r}...'.format(status))
         self.transport.write('{} 0\n'.format(status).encode('utf-8'))
 
     def query_power_status(self):
+        self.msg('Querying power status...')
         self.transport.write('pow 0\n'.encode('utf-8'))
 
     def outReceived(self, data):
         self.callback(data)
+
+    def logPrefix(self):
+        return 'cec'
 
 
 class CEC(object):
@@ -53,7 +61,7 @@ class CEC(object):
         self.protocol = CECProtocol(callback=self._parse_power_status)
 
     def start(self):
-        reactor.spawnProcess(self.protocol, which('cec-client')[0], 
+        reactor.spawnProcess(self.protocol, which('cec-client')[0],
                              args=('cec-client', '-d', '1'))
         self.status_loop = LoopingCall(self.query_power_status)
         self.status_loop.start(15)
