@@ -28,7 +28,8 @@ definitions:
 
   plan:
     type: object
-    required: [id, items, layouts]
+    additionalProperties: false
+    required: [id, items, layouts, power]
     properties:
       id: {$ref: '#/definitions/uuid'}
       items:
