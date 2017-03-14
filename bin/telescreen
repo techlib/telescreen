@@ -51,7 +51,7 @@ from getopt import gnu_getopt
 from sys import argv, stderr, exit
 
 
-def do_screen(*args, connect_to, identity, quiet):
+def do_screen(*args, connect_to, identity, quiet, enable_cec):
     if not quiet:
         # Start Twisted logging to console.
         log.startLogging(stderr)
@@ -69,8 +69,12 @@ def do_screen(*args, connect_to, identity, quiet):
     # Prepare the screen that is presented to the user.
     screen = Screen()
 
-    # Prepare the CEC adapter.
-    cec = CEC()
+    if enable_cec:
+        # Prepare the CEC adapter.
+        cec = CEC()
+
+    else:
+        cec = None
 
     # Prepare the manager that communicates with the leader and
     # controls the screen instance above.
@@ -122,7 +126,8 @@ def do_help(*args, **kwargs):
     print('')
     print('  --connect, -c url      Connect to specified 0MQ endpoint.')
     print('  --id, -d identity      Set client 0MQ identity.')
-    print('  --check-interval, -i   Set check interval, default 300.')
+    print('  --cec, -C              Use cec-tool to control TV power.')
+    print('  ')
     print('  --quiet, -q            Disable stderr logging')
     print('')
     print('The 0MQ endpoint must belong to an Indoktrinator instance')
@@ -137,14 +142,15 @@ def do_version(*args, **kwargs):
 
 def main():
     # Parse command line arguments.
-    longopts = ['help', 'version', 'id=', 'connect=', 'decode', 'quiet']
-    opts, args = gnu_getopt(argv, 'hVi:d:c:q', longopts)
+    longopts = ['help', 'version', 'id=', 'connect=', 'decode', 'quiet', 'cec']
+    opts, args = gnu_getopt(argv, 'hVi:d:c:qC', longopts)
 
     action = do_screen
     kwargs = {
         'connect_to': None,
         'identity': None,
         'quiet': False,
+        'enable_cec': False,
     }
 
     for k, v in opts:
@@ -160,6 +166,8 @@ def main():
             action = do_decode
         elif k in ('--quiet', '-q'):
             kwargs['quiet'] = True
+        elif k in ('--cec', '-C'):
+            kwargs['enable_cec'] = True
 
     if action != do_decode and kwargs['connect_to'] is None:
         kwargs['connect_to'] = 'tcp://127.0.0.1:5001'

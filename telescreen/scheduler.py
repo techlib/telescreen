@@ -210,6 +210,10 @@ class PowerScheduler (Scheduler):
         return 'power-sched'
 
     def set_power_status(self, status):
+        if self.cec is None:
+            log.msg('CEC not available, would go to {!r}.'.format(status))
+            return
+
         if self.cec.status != status:
             self.cec.set_power_status(status)
 

@@ -56,8 +56,9 @@ class Manager(object):
         self.layout_scheduler.start()
         self.power_scheduler.start()
 
-        # CEC has its tasks as well.
-        self.cec.start()
+        if self.cec is not None:
+            # Start CEC periodic tasks as well.
+            self.cec.start()
 
         log.msg('Starting periodic status update...')
         self.status_loop = LoopingCall(self.send_status)
@@ -77,7 +78,7 @@ class Manager(object):
             'status': {
                 'plan': self.plan,
                 'layout': self.screen.layout,
-                'power': self.cec.status,
+                'power': self.cec.status if self.cec else 'unknown',
                 'hostname': self.hostname
             },
         })
