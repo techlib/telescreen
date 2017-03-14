@@ -51,7 +51,7 @@ class CECProtocol(ProcessProtocol, Logging):
     def lineReceived(self, line):
         if 'power status:' in line:
             try:
-                m = re.match('power status: (.*)'. line)
+                m = re.match('power status: (.*)', line)
                 self.recipient.on_power_status(m.group(1).strip())
             except AttributeError:
                 pass
@@ -90,8 +90,11 @@ class CEC(object):
         self.protocol.query_power_status()
 
     def on_power_status(self, status):
+        prev_status = self.status
         self.status = CEC_POWER_STATUSES.get(status, 'unknown')
-        log.msg('CEC power status changed: {!r}'.format(self.status))
+
+        if self.status != prev_status:
+            log.msg('CEC power status changed: {!r}'.format(self.status))
 
     def on_exit(self):
         if (time() - self.last_retry) > 10:
