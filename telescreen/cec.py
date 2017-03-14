@@ -4,6 +4,7 @@
 import os
 import re
 
+from time import time
 from twisted.internet.task import LoopingCall
 from twisted.python import log
 from twisted.internet import reactor
@@ -11,7 +12,6 @@ from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
 from telescreen.common import Logging
-
 
 __all__ = ['CEC']
 
@@ -26,8 +26,9 @@ CEC_POWER_STATUSES = {
 
 
 class CECProtocol(ProcessProtocol, Logging):
-    def __init__(self, callback=log.msg):
-        self.callback = callback
+    def __init__(self, rec_callback=log.msg, exit_callback=log.msg):
+        self.rec_callback = rec_callback
+        self.exit_callback = exit_callback
 
     def connectionMade(self):
         pass
@@ -45,7 +46,10 @@ class CECProtocol(ProcessProtocol, Logging):
         self.transport.write('pow 0\n'.encode('utf-8'))
 
     def outReceived(self, data):
-        self.callback(data)
+        self.rec_callback(data)
+
+    def processExited(self, reason):
+        self.exit_callback()
 
     def logPrefix(self):
         return 'cec'
@@ -58,7 +62,9 @@ class CEC(object):
 
     def __init__(self):
         self.status = 'unknown'
-        self.protocol = CECProtocol(callback=self._parse_power_status)
+        self.last_retry = time()
+        self.protocol = CECProtocol(rec_callback=self._parse_power_status,
+                                    exit_callback=self._restart_process)
 
     def start(self):
         reactor.spawnProcess(self.protocol, which('cec-client')[0],
@@ -82,5 +88,13 @@ class CEC(object):
         except AttributeError:
             pass
 
+    def _restart_process(self):
+        if (time() - self.last_retry) > 10:
+            self.status_loop.stop()
+            self.start()
+            self.last_retry = time()
+        else:
+            log.msg('CEC process dying too often, stopping...')
+            reactor.stop()
 
 # vim:set sw=4 ts=4 et:
