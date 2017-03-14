@@ -94,8 +94,8 @@ class Manager(object):
             validate(message, schema)
         except ValidationError as e:
             if isinstance(message, dict):
-                log.msg('Invalid message received, object type {0!r}.'
-                            .format(message.get('type')))
+                t = message.get('type')
+                log.msg('Invalid message received, type {!r}.'.format(t))
             else:
                 log.msg('Invalid message received, not an object.')
 

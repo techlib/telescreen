@@ -199,6 +199,7 @@ class LayoutScheduler (Scheduler):
             'sidebar': task['sidebar'],
         })
 
+
 class PowerScheduler (Scheduler):
     def __init__(self, cec):
         super().__init__()
@@ -222,6 +223,7 @@ class PowerScheduler (Scheduler):
 
         self.msg('Schedule power change to {} ...'.format(task['power']))
         self.add_event(task['start'], self.set_power_status, task['power'])
+
 
 def plan_window(plan, ending_after, starting_before):
     """
