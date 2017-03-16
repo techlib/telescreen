@@ -1,5 +1,5 @@
 Name:           telescreen
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Digital signage player for GNOME
 
@@ -12,18 +12,28 @@ BuildArch:      noarch
 
 Source0:        %{name}-%{version}.tar.gz
 
-Requires:       python3, python3-libcec
-Requires:       python3-twisted, python3-simplejson, python3-jsonschema
-Requires:       python3-PyYAML, python3-gstreamer1, python3-gobject
-Requires:       gobject-introspection, gtk3, webkitgtk4, gdk-pixbuf2
-Requires:       clutter, clutter-gst3, gstreamer1, libcec
+Requires:       python3
+Requires:       python3-twisted
+Requires:       python3-simplejson
+Requires:       python3-jsonschema
+Requires:       python3-PyYAML
+Requires:       python3-gstreamer1
+Requires:       python3-gobject
+
+Requires:       gobject-introspection
+Requires:       gtk3
+Requires:       webkitgtk4
+Requires:       gdk-pixbuf2
+Requires:       gstreamer1
+Requires:       gstreamer1-plugins-base
+
+Requires:       libcec
 
 %define debug_package %{nil}
 
 %description
 This software aims to greatly simplify management of digital information
-screens in libraries and similar institutions. Its development has been
-funded by NTK and VISK.
+screens in libraries and similar institutions.
 
 %prep
 %setup -q -n %{name}-%{version}
@@ -50,5 +60,8 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Thu Mar 16 2017 Jan Dvořák <jan.dvorak@techlib.cz> - 0.2.0-1
+- First stable release
+
 * Mon Dec 19 2016 Jan Dvořák <jan.dvorak@techlib.cz> - 0.1.0-1
 - Initial release
