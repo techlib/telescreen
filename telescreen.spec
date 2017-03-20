@@ -1,5 +1,5 @@
 Name:           telescreen
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Digital signage player for GNOME
 
@@ -19,6 +19,7 @@ Requires:       python3-jsonschema
 Requires:       python3-PyYAML
 Requires:       python3-gstreamer1
 Requires:       python3-gobject
+Requires:	python3-zmq
 
 Requires:       gobject-introspection
 Requires:       gtk3
