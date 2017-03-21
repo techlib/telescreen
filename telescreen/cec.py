@@ -49,12 +49,18 @@ class CECProtocol(ProcessProtocol, Logging):
             self.lineReceived(line)
 
     def lineReceived(self, line):
-        if 'power status:' in line:
-            try:
+        try:
+            if 'power status:' in line:
                 m = re.match('power status: (.*)', line)
                 self.recipient.on_power_status(m.group(1).strip())
-            except AttributeError:
-                pass
+
+            elif 'ERROR:' in line:
+                m = re.match('ERROR:.*\t(.*)', line)
+                self.msg('Error: {}'.format(m.group(1).strip()))
+
+        except AttributeError:
+            # Some of the m.group() calls above have failed...
+            pass
 
     def processExited(self, reason):
         self.recipient.on_exit()
