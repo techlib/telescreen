@@ -114,6 +114,10 @@ class Scheduler (Logging):
         # Schedule some tasks.
         self.schedule(now)
 
+        if not self.plan:
+            # Reset when we have no plan at all.
+            return self.no_plan()
+
     def schedule(self, now=None):
         """
         Schedule tasks coming up in the next minute.
@@ -140,6 +144,10 @@ class Scheduler (Logging):
     def discard_task(self, task):
         """Discard a terminated task."""
         self.tasks.discard(task)
+
+    def no_plan(self):
+        """Reset to the default state (optional)."""
+        pass
 
 
 class ItemScheduler (Scheduler):
@@ -198,6 +206,9 @@ class LayoutScheduler (Scheduler):
             'panel': task['panel'],
             'sidebar': task['sidebar'],
         })
+
+    def no_plan(self):
+        self.screen.set_layout({'mode': 'full'})
 
 
 class PowerScheduler (Scheduler):
