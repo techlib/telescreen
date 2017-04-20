@@ -1,6 +1,18 @@
-MIT License
+# General
 
-Copyright (c) 2016
+This project is licensed to you under the terms of the MIT License.
+
+All contributions accepted by the project must follow the rules stated in the
+[Developer Certificate of Origin](https://developercertificate.org/) and be
+licensed to project maintainers under the license below.
+
+Please note that all project contributors retain their respective copyrights
+and that the project repository **may include third party works** that are
+**licensed separately**.
+
+## The MIT License
+
+Copyright 2017 respective project contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
