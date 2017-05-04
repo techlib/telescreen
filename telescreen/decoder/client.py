@@ -5,6 +5,8 @@ from twisted.internet.protocol import ProcessProtocol
 from twisted.internet import reactor
 from twisted.python import log
 
+from telescreen import common
+
 import sys
 import os
 
@@ -14,7 +16,11 @@ __all__ = []
 
 class DecoderClient (ProcessProtocol):
     def __init__(self, xid, media, url):
-        args = [sys.argv[0], '--quiet', '--decode', str(xid), media, url]
+        args = [
+            sys.argv[0],
+            '--debug' if common.debug else '--quiet',
+            '--decode', str(xid), media, url,
+        ]
         reactor.spawnProcess(self, sys.argv[0], args, os.environ)
 
     def errReceived(self, data):

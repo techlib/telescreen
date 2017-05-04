@@ -41,6 +41,7 @@ from telescreen.manager import Manager
 from telescreen.screen import Screen
 from telescreen.tzmq import Router
 from telescreen.cec import CEC
+from telescreen import common
 
 # Get rest of the Twisted.
 from twisted.python import log
@@ -125,10 +126,11 @@ def do_help(*args, **kwargs):
     print('  --version, -V          Display version info.')
     print('')
     print('  --connect, -c url      Connect to specified 0MQ endpoint.')
-    print('  --id, -d identity      Set client 0MQ identity.')
+    print('  --id, -D identity      Set client 0MQ identity.')
     print('  --cec, -C              Use cec-tool to control TV power.')
     print('  ')
-    print('  --quiet, -q            Disable stderr logging')
+    print('  --debug, -d            Dump 0MQ communication.')
+    print('  --quiet, -q            Disable stderr logging, disable debug.')
     print('')
     print('The 0MQ endpoint must belong to an Indoktrinator instance')
     print('responding to messages addressed to the "leader".')
@@ -142,8 +144,9 @@ def do_version(*args, **kwargs):
 
 def main():
     # Parse command line arguments.
-    longopts = ['help', 'version', 'id=', 'connect=', 'decode', 'quiet', 'cec']
-    opts, args = gnu_getopt(argv, 'hVi:d:c:qC', longopts)
+    longopts = ['help', 'version', 'debug', 'id=', 'connect=',
+                'decode', 'quiet', 'cec']
+    opts, args = gnu_getopt(argv, 'hVdi:D:c:qC', longopts)
 
     action = do_screen
     kwargs = {
@@ -160,12 +163,14 @@ def main():
             action = do_version
         elif k in ('--connect', '-c'):
             kwargs['connect_to'] = v
-        elif k in ('--id', '-d'):
+        elif k in ('--id', '-D'):
             kwargs['identity'] = v
         elif k in ('--decode',):
             action = do_decode
         elif k in ('--quiet', '-q'):
             kwargs['quiet'] = True
+        elif k in ('--debug', '-d'):
+            common.debug = True
         elif k in ('--cec', '-C'):
             kwargs['enable_cec'] = True
 

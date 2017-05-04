@@ -1,13 +1,18 @@
 #!/usr/bin/python3 -tt
 # -*- coding: utf-8 -*-
 
+from twisted.python import log
 from twisted.internet import reactor
 from twisted.internet.interfaces import IFileDescriptor, IReadDescriptor
 from zope.interface import implementer
+
 from simplejson import loads, dumps
 from time import time
 from uuid import uuid4
 
+from telescreen import common
+
+import yaml
 import zmq
 
 
@@ -76,7 +81,16 @@ class Router(object):
                     sender, data, t = self.socket.recv_multipart(zmq.NOBLOCK)
                     if int(t) + 15 < time():
                         continue
-                    self.on_message(loads(data), sender)
+
+                    payload = loads(data)
+
+                    if common.debug:
+                        text = yaml.dump(payload, default_flow_style=False)
+                        log.msg('Received message (from {!r}):\n{}'
+                                .format(sender, text))
+
+                    self.on_message(payload, sender)
+
                 except zmq.ZMQError as e:
                     if e.errno == zmq.EAGAIN:
                         break
@@ -111,6 +125,10 @@ class Router(object):
         else:
             if not isinstance(recipient, bytes):
                 recipient = recipient.encode('utf-8')
+
+        if common.debug:
+            text = yaml.dump(message, default_flow_style=False)
+            log.msg('Sending message (to {!r}):\n'.format(recipient) + text)
 
         # JSON-encode the message.
         json = dumps(message, for_json=True).encode('utf-8')

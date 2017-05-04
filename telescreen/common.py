@@ -4,7 +4,13 @@
 from twisted.python import log
 
 
-__all__ = ['Logging']
+__all__ = ['Logging', 'debug']
+
+
+debug = False
+"""
+Global debugging flag.
+"""
 
 
 class Logging:
