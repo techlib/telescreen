@@ -6,7 +6,7 @@ from twisted.internet import reactor
 from twisted.python import log
 
 from telescreen.common import Logging
-from telescreen.screen import VideoItem, ImageItem
+from telescreen.screen import VideoItem, ImageItem, StreamItem
 
 
 __all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler', 'PowerScheduler']
@@ -15,6 +15,7 @@ __all__ = ['Scheduler', 'ItemScheduler', 'LayoutScheduler', 'PowerScheduler']
 ITEM_TYPES = {
     'video': VideoItem,
     'image': ImageItem,
+    'stream': StreamItem,
 }
 
 

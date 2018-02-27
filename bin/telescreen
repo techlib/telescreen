@@ -104,7 +104,7 @@ def do_decode(*args, quiet, **kwargs):
     xid, media, url = args
     xid = int(xid)
 
-    assert media in ('image', 'video'), 'Expected media: image, video'
+    assert media in ('image', 'video', 'stream'), 'Expected media: image, video'
 
     # Prepare the decoder.
     decoder = Decoder(xid, media, url)

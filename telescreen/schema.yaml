@@ -24,7 +24,7 @@ definitions:
     type: number
 
   mediaType:
-    enum: [image, video]
+    enum: [image, video, stream]
 
   plan:
     type: object

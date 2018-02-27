@@ -14,7 +14,7 @@ from os.path import dirname
 from telescreen.decoder.client import DecoderClient
 
 
-__all__ = ['Screen', 'VideoItem', 'ImageItem']
+__all__ = ['Screen', 'VideoItem', 'ImageItem', 'StreamItem']
 
 
 class Screen:
@@ -261,6 +261,10 @@ class ImageItem(Item):
 class VideoItem(Item):
     """Video playlist item."""
     MEDIA = 'video'
+
+class StreamItem(Item):
+    """Stream playlist item."""
+    MEDIA = 'stream'
 
 
 def image_from_file(path):

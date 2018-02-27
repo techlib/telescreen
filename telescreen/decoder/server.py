@@ -127,6 +127,21 @@ class Decoder (LineReceiver):
         source.set_property('video-sink', videosink)
 
         return pipeline, videosink
+    
+    def make_stream_pipeline(self):
+        pipeline = Gst.Pipeline()
+
+        # FIXME: We should use playbin3, but it seemed to fail sometimes.
+        source = Gst.ElementFactory.make('playbin')
+        pipeline.add(source)
+
+        videosink = Gst.ElementFactory.make('xvimagesink')
+
+        source.set_property('uri', quote(self.url, '/:'))
+        source.set_property('buffer-size', 2**22)
+        source.set_property('video-sink', videosink)
+
+        return pipeline, videosink
 
 
 # vim:set sw=4 ts=4 et:
