@@ -1,5 +1,5 @@
 Name:           telescreen
-Version:        0.2.3
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Digital signage player for GNOME
 
@@ -61,6 +61,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Tue Feb 27 2018 Daniel Staněk <daniel.stanek@techlib.cz> - 0.3.0-1
+- Added stream playback support
+
 * Thu Mar 16 2017 Jan Dvořák <jan.dvorak@techlib.cz> - 0.2.0-1
 - First stable release
 
