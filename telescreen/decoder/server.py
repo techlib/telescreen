@@ -127,7 +127,7 @@ class Decoder (LineReceiver):
         source.set_property('video-sink', videosink)
 
         return pipeline, videosink
-    
+
     def make_stream_pipeline(self):
         pipeline = Gst.Pipeline()
 

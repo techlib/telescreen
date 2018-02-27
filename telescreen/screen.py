@@ -262,6 +262,7 @@ class VideoItem(Item):
     """Video playlist item."""
     MEDIA = 'video'
 
+
 class StreamItem(Item):
     """Stream playlist item."""
     MEDIA = 'stream'
